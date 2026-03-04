@@ -12,6 +12,7 @@ class Config:
     # -------------------------
     # Data
     # -------------------------
+    raw_dataset_path: str = "data/apps_raw.jsonl"
     dataset_path: str = "data/apps.jsonl"
     splits_dir: str = "data/splits"
 
