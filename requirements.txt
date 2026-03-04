@@ -12,3 +12,4 @@ tqdm>=4.66.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
 wandb>=0.16.0
+PIL>=10.0.0
