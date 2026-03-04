@@ -98,7 +98,6 @@ def remove_low_signal(text):
         r"subscriptions?",
         r"in[-\s]*app\s*purchases?",
         r"need\s*help",
-        r"support",
         r"feedback",
         r"refund",
     ]
@@ -110,7 +109,7 @@ def remove_low_signal(text):
         if mm:
             pos = mm.start()
             # (e.g., "support" inside feature description). Require some minimum length.
-            if pos >= 300:
+            if pos >= 500:
                 cut_pos = pos if cut_pos is None else min(cut_pos, pos)
 
     if cut_pos is not None:
