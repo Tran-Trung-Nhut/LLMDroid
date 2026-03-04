@@ -119,6 +119,7 @@ def train_one_fold(fold: int):
         lora_dropout=cfg.lora_dropout,
         bias="none",
         task_type="CAUSAL_LM",
+        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
     )
     model = get_peft_model(model, lora_cfg)
     model.train()
