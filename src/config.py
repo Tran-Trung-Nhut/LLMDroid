@@ -1,17 +1,3 @@
-"""
-Single-file config for reproducible experiments.
-
-Goal:
-- Keep it simple: 1 place to set dataset paths, folds, training hyperparams, and inference options.
-- All scripts import from here; no scattered defaults.
-
-Usage:
-- Edit values below as needed.
-- Run:
-    python -m src.make_splits
-    python -m src.run_cv
-    python -m src.run_multi_image_cv
-"""
 from dataclasses import dataclass
 
 
@@ -28,9 +14,6 @@ class Config:
     # -------------------------
     dataset_path: str = "data/apps.jsonl"
     splits_dir: str = "data/splits"
-
-    # If you created a deduped dataset, just point dataset_path to it, e.g.:
-    # dataset_path: str = "data/apps.dedup.jsonl"
 
     # -------------------------
     # Model
