@@ -90,7 +90,13 @@ def infer_one_fold(fold: int):
 
 
 def main():
-    for fold in range(CFG.n_folds):
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--demo", action="store_true", help="Run only fold 0 for quick test")
+    args = ap.parse_args()
+
+    folds = [0] if args.demo else range(CFG.n_folds)
+    for fold in folds:
         infer_one_fold(fold)
 
 
