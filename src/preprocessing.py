@@ -73,13 +73,57 @@ LOW_SIGNAL_PATTERNS = [
 
 def remove_low_signal(text):
     """
-    Remove URLs, emails, and boilerplate sections that add length but little signal.
+    Remove URLs/emails and (more importantly) DROP entire boilerplate footer sections
+    like Privacy Policy / Terms / Contact / Subscriptions, etc.
     """
     if not text:
         return ""
-    for pat in LOW_SIGNAL_PATTERNS:
-        text = re.sub(pat, "", text, flags=re.MULTILINE)
-    return text
+
+    t = text
+
+    # 1) remove URLs/emails/handles globally (keep it simple)
+    t = re.sub(r"https?://[^\s]+", "", t)
+    t = re.sub(r"www\.[^\s]+", "", t)
+    t = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "", t)
+    t = re.sub(r"@[a-zA-Z0-9_]+", "", t)
+
+    # 2) truncate at earliest boilerplate "footer section" marker
+    #    (these usually appear near the end but can span multiple paragraphs)
+    footer_markers = [
+        r"privacy\s*policy",
+        r"terms\s*(of\s*(use|service))?",
+        r"contact\s*us",
+        r"follow\s*us",
+        r"connect\s*with\s*us",
+        r"subscriptions?",
+        r"in[-\s]*app\s*purchases?",
+        r"need\s*help",
+        r"support",
+        r"feedback",
+        r"refund",
+    ]
+
+    lower = t.lower()
+    cut_pos = None
+    for m in footer_markers:
+        mm = re.search(m, lower)
+        if mm:
+            pos = mm.start()
+            # (e.g., "support" inside feature description). Require some minimum length.
+            if pos >= 300:
+                cut_pos = pos if cut_pos is None else min(cut_pos, pos)
+
+    if cut_pos is not None:
+        t = t[:cut_pos]
+
+    # 3) remove remaining common low-signal lines (still line-based)
+    #    Keep this small: only phrases that are almost always non-informative.
+    t = re.sub(r"(?im)^[\s\-•*]*rate\s*us.*$", "", t)
+    t = re.sub(r"(?im)^[\s\-•*]*give\s*us\s*\d+\s*stars?.*$", "", t)
+    t = re.sub(r"(?im)^[\s\-•*]*don'?t\s*forget\s*to\s*(rate|review).*$", "", t)
+    t = re.sub(r"(?im)^[\s\-•*]*⭐+.*$", "", t)
+
+    return t
 
 
 def normalize_whitespace(text):
