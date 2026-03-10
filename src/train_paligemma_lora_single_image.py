@@ -94,33 +94,30 @@ def collate_fn_infer(processor, batch, max_text_len):
 def infer_yes_prob(model, processor, dataloader, device):
     model.eval()
     y_true, y_prob, rows = [], [], []
-    yes_id = processor.tokenizer("YES", add_special_tokens=False)["input_ids"][0]
-    no_id = processor.tokenizer("NO", add_special_tokens=False)["input_ids"][0]
-    debug_once = False
 
     for (inputs, meta) in tqdm(dataloader, desc="infer"):
         for k in list(inputs.keys()):
             inputs[k] = inputs[k].to(device)
+        
         out = model(**inputs)
         last_logits = out.logits[:, -1, :]
         probs = torch.softmax(last_logits, dim=-1)
-        p_yes = probs[:, yes_id].detach().cpu().tolist()
         
-        if not debug_once:
-            txt = processor.tokenizer.decode(inputs["input_ids"][0])
-            print(f"\n[INFER] Input ends: ...{txt[-80:]}")
-            print(f"[INFER] YES_ID={yes_id}, NO_ID={no_id}")
-            print(f"[INFER] P(YES)={p_yes[0]:.4f}, P(NO)={probs[0, no_id].item():.4f}")
-            top5_ids = torch.topk(last_logits[0], 5).indices.tolist()
-            top5_tokens = [processor.tokenizer.decode([tid]) for tid in top5_ids]
-            print(f"[INFER] Top5 IDs: {top5_ids}")
-            print(f"[INFER] Top5 Tokens: {top5_tokens}")
-            debug_once = True
-
+        # Find all tokens that decode to "YES" (any case)
+        yes_prob_batch = []
+        for b in range(len(meta)):
+            p_yes = 0.0
+            top_k = torch.topk(probs[b], k=10)  # Check top 10 tokens
+            for tok_id, tok_prob in zip(top_k.indices, top_k.values):
+                decoded = processor.tokenizer.decode([tok_id.item()]).strip().upper()
+                if decoded == "YES":
+                    p_yes += tok_prob.item()
+            yes_prob_batch.append(p_yes)
+        
         for i, m in enumerate(meta):
             y_true.append(m["y"])
-            y_prob.append(p_yes[i])
-            rows.append({"app_id": m["app_id"], "y_true": m["y"], "y_prob_yes": p_yes[i]})
+            y_prob.append(yes_prob_batch[i])
+            rows.append({"app_id": m["app_id"], "y_true": m["y"], "y_prob_yes": yes_prob_batch[i]})
     return y_true, y_prob, rows
 
 
@@ -190,18 +187,9 @@ def train_one_fold(fold: int):
         pbar = tqdm(train_loader, desc=f"fold {fold} train epoch {epoch}")
         optim.zero_grad(set_to_none=True)
         
-        # Debug first batch of first epoch
-        first_batch = True
-        
         for (inputs, _meta) in pbar:
             for k in list(inputs.keys()):
                 inputs[k] = inputs[k].to(device)
-            
-            if epoch == 0 and first_batch:
-                txt = processor.tokenizer.decode(inputs["input_ids"][0])
-                print(f"\n[TRAIN Epoch 0] Input ends: ...{txt[-100:]}")
-                print(f"[TRAIN] Has 'YES' or 'NO' at end: {txt.strip().endswith('YES') or txt.strip().endswith('NO')}")
-                first_batch = False
             
             out = model(**inputs)
             loss = out.loss / cfg.grad_accum
