@@ -109,8 +109,12 @@ def infer_yes_prob(model, processor, dataloader, device):
         if not debug_once:
             txt = processor.tokenizer.decode(inputs["input_ids"][0])
             print(f"\n[INFER] Input ends: ...{txt[-80:]}")
+            print(f"[INFER] YES_ID={yes_id}, NO_ID={no_id}")
             print(f"[INFER] P(YES)={p_yes[0]:.4f}, P(NO)={probs[0, no_id].item():.4f}")
-            print(f"[INFER] Top5: {torch.topk(last_logits[0], 5).indices.tolist()}")
+            top5_ids = torch.topk(last_logits[0], 5).indices.tolist()
+            top5_tokens = [processor.tokenizer.decode([tid]) for tid in top5_ids]
+            print(f"[INFER] Top5 IDs: {top5_ids}")
+            print(f"[INFER] Top5 Tokens: {top5_tokens}")
             debug_once = True
 
         for i, m in enumerate(meta):
@@ -182,18 +186,22 @@ def train_one_fold(fold: int):
     optim = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
     global_step = 0
-    debug_train_once = False
     for epoch in range(cfg.num_epochs):
         pbar = tqdm(train_loader, desc=f"fold {fold} train epoch {epoch}")
         optim.zero_grad(set_to_none=True)
+        
+        # Debug first batch of first epoch
+        first_batch = True
+        
         for (inputs, _meta) in pbar:
             for k in list(inputs.keys()):
                 inputs[k] = inputs[k].to(device)
             
-            if not debug_train_once:
+            if epoch == 0 and first_batch:
                 txt = processor.tokenizer.decode(inputs["input_ids"][0])
-                print(f"\n[TRAIN] Input ends: ...{txt[-80:]}")
-                debug_train_once = True
+                print(f"\n[TRAIN Epoch 0] Input ends: ...{txt[-100:]}")
+                print(f"[TRAIN] Has 'YES' or 'NO' at end: {txt.strip().endswith('YES') or txt.strip().endswith('NO')}")
+                first_batch = False
             
             out = model(**inputs)
             loss = out.loss / cfg.grad_accum
