@@ -71,6 +71,25 @@ def collate_fn(processor, batch, max_text_len):
     return model_inputs, meta
 
 
+def collate_fn_infer(processor, batch, max_text_len):
+    """Collate function for inference - only prompt, no target"""
+    images = [b["image"] for b in batch]
+    prompts = [BINARY_PROMPT.format(text=b["text"]) for b in batch]
+
+    # Only process prompts (no target)
+    model_inputs = processor(
+        text=prompts,
+        images=images,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_text_len,
+    )
+
+    meta = [{"app_id": b["app_id"], "y": b["label_binary"]} for b in batch]
+    return model_inputs, meta
+
+
 @torch.no_grad()
 def infer_yes_prob(model, processor, dataloader, device):
     model.eval()
@@ -148,7 +167,7 @@ def train_one_fold(fold: int):
         batch_size=cfg.batch_size,
         shuffle=False,
         num_workers=2,
-        collate_fn=lambda b: collate_fn(processor, b, cfg.max_text_len),
+        collate_fn=lambda b: collate_fn_infer(processor, b, cfg.max_text_len),
     )
 
     optim = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
