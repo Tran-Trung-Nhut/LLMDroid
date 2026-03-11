@@ -26,10 +26,18 @@ def prob_yes_single(model, processor, text, image, device, max_text_len=512):
     ).to(device)
 
     out = model(**inputs)
-    yes_id = processor.tokenizer("YES", add_special_tokens=False)["input_ids"][0]
     last_logits = out.logits[:, -1, :]
     probs = torch.softmax(last_logits, dim=-1)
-    return float(probs[0, yes_id].detach().cpu())
+    
+    # Sum probabilities of all tokens that decode to "YES" (any case)
+    p_yes = 0.0
+    top_k = torch.topk(probs[0], k=10)
+    for tok_id, tok_prob in zip(top_k.indices, top_k.values):
+        decoded = processor.tokenizer.decode([tok_id.item()]).strip().upper()
+        if decoded == "YES":
+            p_yes += tok_prob.item()
+    
+    return float(p_yes)
 
 
 def infer_one_fold(fold: int):
