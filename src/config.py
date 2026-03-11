@@ -25,11 +25,11 @@ class Config:
     # -------------------------
     # Training (single-image LoRA)
     # -------------------------
-    num_epochs: int = 20  
+    num_epochs: int = 15  # Enough with good LR
     batch_size: int = 1
     grad_accum: int = 16
-    lr: float = 1e-5  
-    weight_decay: float = 0.01  # Added regularization
+    lr: float = 2e-4  # RESTORED: Original LR was correct
+    weight_decay: float = 0.01
     max_text_len: int = 1024 + 512
 
     # Which single image to pick per app during training/eval:

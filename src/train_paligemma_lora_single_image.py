@@ -4,6 +4,7 @@ from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 
 from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
@@ -181,6 +182,7 @@ def train_one_fold(fold: int):
     )
 
     optim = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    scheduler = CosineAnnealingLR(optim, T_max=cfg.num_epochs, eta_min=1e-6)
 
     global_step = 0
     for epoch in range(cfg.num_epochs):
@@ -206,6 +208,11 @@ def train_one_fold(fold: int):
         metrics = compute_binary_metrics(y_true, y_prob, threshold=0.5)
         write_json(Path(run_dir) / f"metrics_epoch_{epoch}.json", metrics)
         write_predictions_csv(Path(run_dir) / f"predictions_epoch_{epoch}.csv", pred_rows)
+        
+        scheduler.step()  # Update learning rate
+        current_lr = scheduler.get_last_lr()[0]
+        print(f"[fold {fold}] epoch {epoch} | F1={metrics['f1']:.3f} | LR={current_lr:.2e}")
+
 
     model.save_pretrained(Path(run_dir) / "lora_adapter")
     print(f"[fold {fold}] saved adapter: {Path(run_dir) / 'lora_adapter'}")
