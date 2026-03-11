@@ -211,7 +211,7 @@ def train_one_fold(fold: int):
         
         scheduler.step()  # Update learning rate
         current_lr = scheduler.get_last_lr()[0]
-        print(f"[fold {fold}] epoch {epoch} | F1={metrics['f1']:.3f} | LR={current_lr:.2e}")
+        print(f"[fold {fold}] epoch {epoch} | F1={metrics['f1_pos']:.3f} | Recall={metrics['recall_pos']:.3f} | LR={current_lr:.2e}")
 
 
     model.save_pretrained(Path(run_dir) / "lora_adapter")
