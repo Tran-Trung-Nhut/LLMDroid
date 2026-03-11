@@ -25,7 +25,7 @@ class Config:
     # -------------------------
     # Training (single-image LoRA)
     # -------------------------
-    num_epochs: int = 5
+    num_epochs: int = 10
     batch_size: int = 1
     grad_accum: int = 16
     lr: float = 2e-4
