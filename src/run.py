@@ -33,13 +33,21 @@ def _has_ocr_data() -> bool:
     
     try:
         with open(CFG.dataset_path, 'r', encoding='utf-8') as f:
-            first_line = f.readline()
-            if not first_line:
-                return False
-            row = json.loads(first_line)
-            # Check if has ocr_by_image field with data
-            ocr_map = row.get('ocr_by_image')
-            return isinstance(ocr_map, dict) and len(ocr_map) > 0
+            # Check first 5 apps to see if OCR has actual content
+            has_text = False
+            for i, line in enumerate(f):
+                if i >= 5:
+                    break
+                row = json.loads(line)
+                ocr_map = row.get('ocr_by_image')
+                if isinstance(ocr_map, dict):
+                    for text in ocr_map.values():
+                        if text and len(text.strip()) > 0:
+                            has_text = True
+                            break
+                if has_text:
+                    break
+            return has_text
     except:
         return False
 
