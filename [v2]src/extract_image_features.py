@@ -63,8 +63,11 @@ def encode_images_clip(image_paths: list[str], processor, model, device,
             continue
         inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
         with torch.no_grad():
-            embeds = model.get_image_features(**inputs)
+            outputs = model.get_image_features(**inputs)
 
+        embeds = outputs
+        if not isinstance(embeds, torch.Tensor):
+            embeds = embeds[0] if isinstance(embeds, (list, tuple)) else outputs.get("image_embeds", outputs[0])
         embeds = embeds / embeds.norm(dim=-1, keepdim=True)
         all_embeds.append(embeds.cpu().float().numpy())
 
@@ -77,12 +80,14 @@ def encode_texts_clip(texts: list[str], processor, model, device) -> np.ndarray:
     """Return (N_texts, embed_dim) float32 array of CLIP text embeddings."""
     inputs = processor(text=texts, return_tensors="pt", padding=True, truncation=True).to(device)
     with torch.no_grad():
-        embeds = model.get_text_features(**inputs)
+        outputs = model.get_text_features(**inputs)
         
-    if hasattr(embeds, "text_embeds"):
-        embeds = embeds.text_embeds
-    elif not isinstance(embeds, torch.Tensor):
-        embeds = embeds[0]
+    embeds = outputs
+    if not isinstance(embeds, torch.Tensor):
+        if hasattr(outputs, "text_embeds"):
+            embeds = outputs.text_embeds
+        else:
+            embeds = outputs[0]
         
     embeds = embeds / embeds.norm(dim=-1, keepdim=True)
     return embeds.cpu().float().numpy()
