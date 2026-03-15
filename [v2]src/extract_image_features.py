@@ -35,7 +35,7 @@ from utils.io import read_jsonl
 
 def load_clip_model():
     processor = CLIPProcessor.from_pretrained(CFG.clip_model)
-    model = CLIPModel.from_pretrained(CFG.clip_model, torch_dtype=torch.float16)
+    model = CLIPModel.from_pretrained(CFG.clip_model, dtype=torch.float16)
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -64,6 +64,8 @@ def encode_images_clip(image_paths: list[str], processor, model, device,
         inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
         with torch.no_grad():
             embeds = model.get_image_features(**inputs)
+
+        embeds = embeds.pooler_output 
         embeds = embeds / embeds.norm(dim=-1, keepdim=True)
         all_embeds.append(embeds.cpu().float().numpy())
 
@@ -77,6 +79,8 @@ def encode_texts_clip(texts: list[str], processor, model, device) -> np.ndarray:
     inputs = processor(text=texts, return_tensors="pt", padding=True, truncation=True).to(device)
     with torch.no_grad():
         embeds = model.get_text_features(**inputs)
+    if not isinstance(embeds, torch.Tensor):
+        embeds = embeds[0] # embeds.pooler_output 
     embeds = embeds / embeds.norm(dim=-1, keepdim=True)
     return embeds.cpu().float().numpy()
 

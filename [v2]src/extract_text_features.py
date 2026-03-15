@@ -111,7 +111,7 @@ def compute_meta_features(record: dict) -> np.ndarray:
 
 def load_text_model():
     tokenizer = AutoTokenizer.from_pretrained(CFG.text_model)
-    model = AutoModel.from_pretrained(CFG.text_model, torch_dtype=torch.float16)
+    model = AutoModel.from_pretrained(CFG.text_model, dtype=torch.float16)
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
