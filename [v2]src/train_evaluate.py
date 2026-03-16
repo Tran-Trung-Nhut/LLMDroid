@@ -31,7 +31,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 from config import CFG
-from utils.io import read_jsonl, write_json, write_predictions_csv
+from utils.io import write_json, write_predictions_csv
 from utils.metrics import compute_binary_metrics
 from utils.seed import set_seed
 

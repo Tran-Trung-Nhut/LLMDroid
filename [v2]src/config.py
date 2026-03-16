@@ -5,7 +5,6 @@ All constants are centralized here for easier maintenance.
 """
 from dataclasses import dataclass, field
 import os
-from typing import List, Dict, Tuple
 
 
 @dataclass(frozen=True)

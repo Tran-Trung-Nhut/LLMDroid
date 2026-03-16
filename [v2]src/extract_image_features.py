@@ -8,10 +8,7 @@ Extracts per app:
 
 Output: one .npz file under features_dir/image/
 """
-import json
 import os
-import re
-import math
 import sys
 import numpy as np
 from pathlib import Path
