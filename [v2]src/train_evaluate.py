@@ -102,13 +102,27 @@ def load_split(fold: int):
 # LightGBM params are now provided centrally via `CFG.lgbm_params` in config.py
 
 
-def train_lgbm(X_train, y_train, X_val, y_val, num_rounds=None):
-    """Train a LightGBM model with early stopping."""
+def train_lgbm(X_train, y_train, X_val, y_val, num_rounds=None, verbose_class_weight=False):
+    """Train a LightGBM model with early stopping and optional auto class weighting."""
     if num_rounds is None:
         num_rounds = CFG.lgbm_num_rounds
     params = dict(CFG.lgbm_params)
     if params.get("seed") is None:
         params["seed"] = CFG.seed
+    
+    # Auto class weight handling for imbalanced data
+    if CFG.use_auto_class_weight:
+        pos_ratio = np.mean(y_train)
+        if pos_ratio > 0 and pos_ratio < 1:
+            scale_pos_weight = (1 - pos_ratio) / pos_ratio
+            params['scale_pos_weight'] = scale_pos_weight
+            
+            if verbose_class_weight:
+                n_pos = int(np.sum(y_train))
+                n_neg = len(y_train) - n_pos
+                print(f"    [Class Weight] Pos={n_pos}, Neg={n_neg}, "
+                      f"Ratio={pos_ratio:.3f}, scale_pos_weight={scale_pos_weight:.3f}")
+    
     dtrain = lgb.Dataset(X_train, label=y_train)
     dval = lgb.Dataset(X_val, label=y_val, reference=dtrain)
     callbacks = [
@@ -188,7 +202,8 @@ def run_single_experiment(name: str, X_all: np.ndarray, data: dict, run_dir: Pat
             X_test = selector.transform(X_test)
         # ─── KẾT THÚC: FEATURE SELECTION ───
 
-        model = train_lgbm(X_train, y_train, X_test, y_test)
+        # Train model (verbose class weight info on first fold only)
+        model = train_lgbm(X_train, y_train, X_test, y_test, verbose_class_weight=(fold == 0))
         y_prob = predict_lgbm(model, X_test)
 
         metrics = compute_binary_metrics(y_test, y_prob, threshold=CFG.classification_threshold)
@@ -286,12 +301,12 @@ def run_fusion_experiment(data: dict, run_dir: Path):
         X_img_tr_sel = img_selector.fit_transform(X_img_tr, y_tr)
         X_img_te_sel = img_selector.transform(X_img_te)
 
-        # Train base models
-        text_model = train_lgbm(X_text_tr_sel, y_tr, X_text_te_sel, y_te)
+        # Train base models (verbose class weight info on first fold only)
+        text_model = train_lgbm(X_text_tr_sel, y_tr, X_text_te_sel, y_te, verbose_class_weight=(fold == 0))
         text_prob_tr = text_model.predict(X_text_tr_sel)
         text_prob_te = text_model.predict(X_text_te_sel)
 
-        img_model = train_lgbm(X_img_tr_sel, y_tr, X_img_te_sel, y_te)
+        img_model = train_lgbm(X_img_tr_sel, y_tr, X_img_te_sel, y_te, verbose_class_weight=(fold == 0))
         img_prob_tr = img_model.predict(X_img_tr_sel)
         img_prob_te = img_model.predict(X_img_te_sel)
 

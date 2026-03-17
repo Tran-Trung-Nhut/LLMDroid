@@ -95,6 +95,9 @@ Score:"""
     feature_selection_k: int = 100  # Number of top features to select
     classification_threshold: float = 0.5  # Binary classification threshold
     
+    # Class imbalance handling
+    use_auto_class_weight: bool = True  # Automatically compute scale_pos_weight from training data
+    
     # Meta-learner (stacking fusion)
     meta_learner_C: float = 1.0
     meta_learner_max_iter: int = 1000
