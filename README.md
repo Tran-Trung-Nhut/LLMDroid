@@ -12,6 +12,7 @@ pip install -r requirements.txt
 
 ### 1. Train Pipeline (Full CV)
 ```bash
+# Run from project root directory
 python src/train_pipeline.py
 ```
 
