@@ -55,6 +55,9 @@ def run_preprocessing_for_inference(raw_jsonl_path: str, output_jsonl_path: str)
         img_paths = row.get("image_paths", [])
         if img_paths:
             row["image_paths"] = preprocessing.dedup_image_paths(img_paths)
+
+        if row.get("label_binary") is None:
+            row["label_binary"] = -1    
     
     with open(output_jsonl_path, "w", encoding="utf-8") as f:
         for row in rows:
