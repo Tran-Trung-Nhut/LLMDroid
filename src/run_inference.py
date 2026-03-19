@@ -189,7 +189,7 @@ def print_and_save_report(name, app_ids, y_true, y_prob, threshold, output_csv, 
 def ensemble_early_fusion(X_all, num_folds=None):
     if num_folds is None:
         num_folds = CFG.n_folds
-    early_fusion_dir = MODELS_DIR / "early_fusion" / "saved_models"
+    early_fusion_dir = MODELS_DIR / "fusion" / "early_fusion" / "saved_models"
     fold_probs = [predict_early_fusion(X_all, early_fusion_dir, fold) for fold in range(num_folds)]
     return ensemble_across_folds(fold_probs)
 
