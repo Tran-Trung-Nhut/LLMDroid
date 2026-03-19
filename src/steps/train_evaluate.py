@@ -40,7 +40,6 @@ from utils.seed import set_seed
 # ── Feature loading ──────────────────────────────────────────────────────────
 
 def load_features():
-    """Load and merge text + image features into one dict keyed by app_id."""
     text_path = Path(CFG.features_dir) / "text" / "features.npz"
     image_path = Path(CFG.features_dir) / "image" / "features.npz"
     slm_path = Path(CFG.features_dir) / "slm" / "features.npz" 
@@ -101,7 +100,6 @@ def load_split(fold: int):
 # ── LightGBM classifier ─────────────────────────────────────────────────────
 
 def train_lgbm(X_train, y_train, X_val, y_val, num_rounds=None):
-    """Train a LightGBM model with early stopping."""
     if num_rounds is None:
         num_rounds = CFG.lgbm_num_rounds
     params = dict(CFG.lgbm_params)
@@ -130,10 +128,6 @@ def predict_lgbm(model, X):
 
 def train_stacking_fusion(text_probs_train, image_probs_train, y_train,
                           text_probs_val, image_probs_val):
-    """
-    Meta-learner: Logistic Regression stacking text & image probabilities.
-    Input: probability predictions from text-only and image-only models.
-    """
     X_meta_train = np.column_stack([text_probs_train, image_probs_train])
     X_meta_val = np.column_stack([text_probs_val, image_probs_val])
 
@@ -154,10 +148,6 @@ def train_stacking_fusion(text_probs_train, image_probs_train, y_train,
 # ── Per-fold training & evaluation ───────────────────────────────────────────
 
 def run_single_experiment(name: str, X_all: np.ndarray, data: dict, run_dir: Path, k_features: int = None):
-    """
-    Train and evaluate a single feature set across all folds.
-    Returns aggregated metrics and per-fold predictions.
-    """
     if k_features is None:
         k_features = CFG.feature_selection_k
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -229,7 +219,6 @@ def run_single_experiment(name: str, X_all: np.ndarray, data: dict, run_dir: Pat
     return all_preds, fold_metrics
 
 def aggregate_metrics(fold_metrics: list[dict]) -> dict:
-    """Average metrics across folds."""
     keys = ["accuracy", "precision_pos", "recall_pos", "f1_pos", "macro_f1", "pr_auc", "roc_auc"]
     agg = {}
     for k in keys:
@@ -242,11 +231,6 @@ def aggregate_metrics(fold_metrics: list[dict]) -> dict:
 # ── Fusion experiment ────────────────────────────────────────────────────────
 
 def run_fusion_experiment(data: dict, run_dir: Path):
-    """
-    Three sub-experiments + stacking/voting fusion.
-    Fusion A: concatenate all features → single LightGBM  (early fusion)
-    Fusion B: stack text-only & image-only probabilities (late fusion with multiple strategies)
-    """
     run_dir.mkdir(parents=True, exist_ok=True)
     
     base_models_dir = run_dir / "base_models_saved"

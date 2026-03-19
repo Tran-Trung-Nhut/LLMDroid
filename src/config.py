@@ -14,9 +14,31 @@ class Config:
     n_folds: int = 5
 
     # ── Data ──
-    raw_dataset_path: str = "data/apps_raw.jsonl"
+    raw_inference_dataset_path: str = "data/apps_inference_raw.jsonl"
+    inference_dataset_path: str = "data/apps_inference.jsonl"  # Preprocessed inference data
     dataset_path: str = "data/apps.jsonl"
     splits_dir: str = "data/splits"
+    images_dir: str = "data/images"
+    
+    # ── Metadata Fetching ──
+    inference_apps_csv_path: str = "data/inference_apps.csv"
+    failed_apps_filename: str = "failed_apps.txt"
+    
+    # AndroZoo API
+    androzoo_api_url: str = "https://androzoo.uni.lu/api/search"
+    androzoo_api_timeout: int = 10  # seconds
+    
+    # Google Play Store
+    gplay_lang: str = "en"
+    gplay_country: str = "us"
+    
+    # Rate limiting & retries
+    api_request_delay: float = 1.0  # seconds between requests
+    screenshot_download_timeout: int = 10  # seconds
+    
+    # Output formatting
+    max_failed_apps_display: int = 10  # Number of failed apps to show in summary
+    image_format: str = "png"  # Screenshot image format
 
     # ── Text encoder ──
     # BGE-large works well for semantic similarity; fits easily on L4
@@ -157,7 +179,7 @@ Score:"""
     run_name: str = "feature_fusion"
 
     # ── Inference ──
-    inference_test_features_dir: str = "data/features_test"
+    inference_features_dir: str = "data/inference_features"
     inference_output_dir: str = "inference_results"
     inference_default_threshold: float = 0.5
 

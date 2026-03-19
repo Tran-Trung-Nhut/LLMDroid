@@ -10,7 +10,32 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### 1. Train Pipeline (Full CV)
+### 1. Fetch Metadata for New Apps
+
+Before running predictions on new apps, you need to fetch metadata from Google Play Store:
+
+```bash
+python src/fetch_app_metadata.py --input data/apps.csv --output data/apps_raw.jsonl --api-key YOUR_API_KEY
+```
+
+**Input**: CSV file with `pkg_name` column
+**Output**: 
+- `data/apps_raw.jsonl` - App metadata in JSONL format
+- `data/images/{pkg_name}/` - Downloaded screenshots
+- `data/failed_apps.txt` - List of apps that failed to fetch
+
+After fetching metadata, you can run the full inference pipeline manually:
+```bash
+# Extract features
+python src/steps/extract_text_features.py
+python src/steps/extract_image_features.py
+python src/steps/extract_slm_features.py
+
+# Run inference
+python src/run_inference.py --input data/features --output predictions
+```
+
+### 2. Train Pipeline (Full CV)
 ```bash
 # Run from project root directory
 python src/train_pipeline.py
@@ -25,13 +50,57 @@ Runs complete pipeline:
 - Extract SLM reasoning scores (Qwen2.5-1.5B)
 - Train & evaluate Early Fusion + Late Fusion (Stacking, Max Voting, Soft Voting)
 
-### 2. Inference on New Data
+### 3. Inference on New Apps
+
+**Option A: Run Full Pipeline from Raw JSONL** (Recommended - Automated)
+
+After fetching metadata with `fetch_app_metadata.py`, run the complete pipeline automatically:
+
 ```bash
-# Use default test set from config
+# Full pipeline: preprocessing → OCR → feature extraction → inference
+python src/run_inference.py --input-raw data/apps_inference_raw.jsonl --output predictions
+
+# With custom output directory
+python src/run_inference.py --input-raw data/apps_inference_raw.jsonl --output my_predictions
+```
+
+This will automatically:
+1. Preprocess text and deduplicate images
+2. Run OCR on screenshots
+3. Extract text features (SBERT, keywords, metadata)
+4. Extract image features (CLIP, zero-shot, OCR)
+5. Extract SLM reasoning scores
+6. Run inference with trained models using 4 fusion strategies:
+   - **Early Fusion**: All features combined (optimized for recall)
+   - **Stacking**: Meta-learner combines text/image predictions (optimized for precision)
+   - **Soft Voting**: Average of text and image predictions (balanced)
+   - **Max Voting**: Maximum of text and image predictions (recall-focused)
+
+**Option B: Use Pre-extracted Features** (Manual)
+
+If you already have extracted features:
+
+```bash
+# Use default features directory
 python src/run_inference.py
 
-# Or specify custom test features directory
-python src/run_inference.py --test_features_dir ./data/features_test_100
+# Or specify custom features directory
+python src/run_inference.py --input data/features --output predictions
+```
+
+**Complete Workflow Example:**
+
+```bash
+# Step 1: Fetch metadata from Google Play
+python src/fetch_app_metadata.py --input data/apps.csv --api-key YOUR_KEY
+
+# Step 2: Run full inference pipeline
+python src/run_inference.py --input-raw data/apps_inference_raw.jsonl --output predictions
+
+# Output: predictions/early_fusion_inference.csv
+#         predictions/stacking_inference.csv
+#         predictions/soft_voting_inference.csv
+#         predictions/max_voting_inference.csv
 ```
 
 ## Configuration
