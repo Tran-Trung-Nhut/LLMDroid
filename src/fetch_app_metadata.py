@@ -45,6 +45,13 @@ class AppMetadataFetcher:
         image_paths = []
         
         for idx, url in enumerate(screenshot_urls, start=1):
+            image_path = app_image_dir / f"{idx}.{CFG.image_format}"
+    
+            if image_path.exists():
+                rel_path = f"{CFG.images_dir}/{pkg_name}/{idx}.{CFG.image_format}"
+                image_paths.append(rel_path)
+                continue
+
             try:
                 response = requests.get(url, timeout=CFG.screenshot_download_timeout)
                 if response.status_code == 200:
