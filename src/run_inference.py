@@ -243,6 +243,102 @@ def get_optimal_threshold(model_dir: Path, default_threshold: float = None) -> f
             return float(data.get("best_threshold", default_threshold))
     return default_threshold
 
+def _is_within_dir(path: Path, root_dir: Path) -> bool:
+    try:
+        path.relative_to(root_dir)
+        return True
+    except ValueError:
+        return False
+
+def cleanup_inference_images(dataset_path: str, images_root: str) -> None:
+    dataset_file = Path(dataset_path)
+    if not dataset_file.exists():
+        print(f"\n[SKIP] Cleanup images: dataset not found at {dataset_file}")
+        return
+
+    images_root_abs = (_PROJECT_ROOT / Path(images_root)).resolve()
+    removed_files = 0
+    missing_files = 0
+    skipped_outside_root = 0
+    candidate_files = set()
+
+    with open(dataset_file, "r", encoding="utf-8") as f:
+        for line in f:
+            row = json.loads(line)
+            for image_path in row.get("image_paths", []):
+                candidate_files.add(image_path)
+
+    removed_parent_dirs = set()
+    for image_path in candidate_files:
+        img = Path(image_path)
+        img_abs = img.resolve() if img.is_absolute() else (_PROJECT_ROOT / img).resolve()
+
+        if not _is_within_dir(img_abs, images_root_abs):
+            skipped_outside_root += 1
+            continue
+
+        if img_abs.exists() and img_abs.is_file():
+            img_abs.unlink()
+            removed_files += 1
+            removed_parent_dirs.add(img_abs.parent)
+        else:
+            missing_files += 1
+
+    # Remove now-empty app folders under images root.
+    for parent in sorted(removed_parent_dirs, key=lambda p: len(p.parts), reverse=True):
+        try:
+            if parent.exists() and parent != images_root_abs and not any(parent.iterdir()):
+                parent.rmdir()
+        except OSError:
+            # Ignore non-empty or locked directories.
+            pass
+
+    print("\n" + "=" * 60)
+    print("  IMAGE CLEANUP")
+    print("=" * 60)
+    print(f"Removed files: {removed_files}")
+    if missing_files:
+        print(f"Already missing: {missing_files}")
+    if skipped_outside_root:
+        print(f"Skipped outside {images_root_abs}: {skipped_outside_root}")
+    print(f"Images root: {images_root_abs}")
+
+def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, output_dir: Path) -> None:
+    output_dir_abs = output_dir.resolve()
+
+    artifact_paths = [
+        Path(preprocessed_path),
+        Path(features_dir),
+        Path("data/apps_temp_inference.jsonl"),
+        Path("data/features_temp_inference"),
+    ]
+
+    removed_files = 0
+    removed_dirs = 0
+    skipped_output_dir = 0
+
+    for artifact in artifact_paths:
+        artifact_abs = artifact.resolve() if artifact.is_absolute() else (_PROJECT_ROOT / artifact).resolve()
+
+        if artifact_abs == output_dir_abs:
+            skipped_output_dir += 1
+            continue
+
+        if artifact_abs.exists() and artifact_abs.is_file():
+            artifact_abs.unlink()
+            removed_files += 1
+        elif artifact_abs.exists() and artifact_abs.is_dir():
+            shutil.rmtree(artifact_abs)
+            removed_dirs += 1
+
+    print("\n" + "=" * 60)
+    print("  ARTIFACT CLEANUP")
+    print("=" * 60)
+    print(f"Removed files: {removed_files}")
+    print(f"Removed directories: {removed_dirs}")
+    if skipped_output_dir:
+        print(f"Skipped output directory: {output_dir_abs}")
+
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
@@ -255,7 +351,12 @@ def main():
     parser.add_argument("--output", "-o", type=str, default=CFG.inference_output_dir, help=f"Output directory (default: {CFG.inference_output_dir})")
     parser.add_argument("--skip-preprocessing", action="store_true", help="Skip preprocessing")
     parser.add_argument("--skip-ocr", action="store_true", help="Skip OCR")
+    parser.add_argument("--keep-images", action="store_true", help="Keep downloaded images after inference when using --input-raw")
+    parser.add_argument("--keep-artifacts", action="store_true", help="Keep intermediate files generated during --input-raw inference")
     args = parser.parse_args()
+
+    preprocessed_path = None
+    features_dir = None
     
     if args.input_raw:
         raw_jsonl_path = args.input_raw
@@ -348,6 +449,16 @@ def main():
     print(f"  - stacking_inference.csv")
     print(f"  - soft_voting_inference.csv")
     print(f"  - max_voting_inference.csv")
+
+    if args.input_raw and not args.keep_images:
+        cleanup_inference_images(CFG.inference_dataset_path, CFG.images_dir)
+    elif args.input_raw and args.keep_images:
+        print("\n[SKIP] Image cleanup because --keep-images was set")
+
+    if args.input_raw and not args.keep_artifacts:
+        cleanup_inference_artifacts(preprocessed_path, features_dir, OUTPUT_DIR_CUSTOM)
+    elif args.input_raw and args.keep_artifacts:
+        print("\n[SKIP] Artifact cleanup because --keep-artifacts was set")
 
 if __name__ == "__main__":
     main()
