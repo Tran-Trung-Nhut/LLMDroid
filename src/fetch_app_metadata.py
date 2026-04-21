@@ -22,8 +22,7 @@ from config import CFG
 
 
 class AppMetadataFetcher:    
-    def __init__(self, output_dir: Optional[str] = None):
-        self.output_dir = Path(output_dir) if output_dir else Path(CFG.raw_inference_dataset_path).parent
+    def __init__(self):
         self.images_dir = Path(CFG.images_dir)
         self.images_dir.mkdir(parents=True, exist_ok=True)
         
@@ -35,7 +34,7 @@ class AppMetadataFetcher:
                 country=CFG.gplay_country
             )
             return result
-        except Exception as e:
+        except Exception:
             return None
     
     def download_screenshots(self, pkg_name: str, screenshot_urls: List[str]) -> List[str]:
@@ -55,17 +54,13 @@ class AppMetadataFetcher:
             try:
                 response = requests.get(url, timeout=CFG.screenshot_download_timeout)
                 if response.status_code == 200:
-                    # Save image
-                    image_path = app_image_dir / f"{idx}.{CFG.image_format}"
                     with open(image_path, 'wb') as f:
                         f.write(response.content)
                     
-                    # Store relative path
                     rel_path = f"{CFG.images_dir}/{pkg_name}/{idx}.{CFG.image_format}"
                     image_paths.append(rel_path)
                     
-            except Exception as e:
-                # Bỏ qua in lỗi chi tiết từng ảnh để tránh trôi màn hình
+            except Exception:
                 continue
         
         return image_paths
@@ -99,18 +94,16 @@ class AppMetadataFetcher:
         return formatted_data
     
     def process_apps_csv(self, input_csv: str, output_jsonl: str):
-        # Read apps.csv
         df = pd.read_csv(input_csv)
         pkg_names = df['pkg_name'].dropna().unique()
+        Path(output_jsonl).parent.mkdir(parents=True, exist_ok=True)
         
         print(f"Found {len(pkg_names)} unique package names")
-        print(f"Output will be saved to: {output_jsonl}")
+        print(f"Writing output to: {output_jsonl}")
         
-        # Process each app
         results = []
         failed = []
         
-        # Dùng tqdm bọc quanh vòng lặp để có thanh tiến trình (progress bar) trực quan
         for pkg_name in tqdm(pkg_names, desc="Processing apps", unit="app"):
             try:
                 result = self.process_app(pkg_name)
@@ -119,22 +112,18 @@ class AppMetadataFetcher:
                 else:
                     failed.append(pkg_name)
                 
-                # Be nice to the API - add delay
                 time.sleep(CFG.api_request_delay)
                 
-            except Exception as e:
+            except Exception:
                 failed.append(pkg_name)
                 continue
         
-        # Save to JSONL
         with open(output_jsonl, 'w', encoding='utf-8') as f:
             for result in results:
                 f.write(json.dumps(result, ensure_ascii=False) + '\n')
         
-        # Print summary
-        print(f"\n{'='*60}")
-        print(f"✓ Successfully processed: {len(results)} apps")
-        print(f"✗ Failed to process: {len(failed)} apps")
+        print(f"\nProcessed: {len(results)} apps")
+        print(f"Failed: {len(failed)} apps")
         print(f"Output saved to: {output_jsonl}")
         print(f"Images saved to: {self.images_dir}")
         
@@ -145,7 +134,6 @@ class AppMetadataFetcher:
             if len(failed) > CFG.max_failed_apps_display:
                 print(f"  ... and {len(failed) - CFG.max_failed_apps_display} more")
             
-            # Save failed apps to a file
             failed_file = Path(output_jsonl).parent / CFG.failed_apps_filename
             with open(failed_file, 'w') as f:
                 f.write('\n'.join(failed))
@@ -158,18 +146,20 @@ def main():
     )
     parser.add_argument(
         '--input',
-        default=CFG.inference_apps_csv_path,
-        help=f'Input CSV file with pkg_name column (default: {CFG.inference_apps_csv_path})'
+        required=True,
+        help='Input CSV file with pkg_name column'
     )
     parser.add_argument(
         '--output',
-        default=CFG.raw_inference_dataset_path,
-        help=f'Output JSONL file (default: {CFG.raw_inference_dataset_path})'
+        required=True,
+        help='Output JSONL file'
     )
     
     args = parser.parse_args()
+
+    if not Path(args.input).exists():
+        parser.error(f"Input file not found: {args.input}")
     
-    # Create fetcher and process apps
     fetcher = AppMetadataFetcher()
     fetcher.process_apps_csv(args.input, args.output)
     

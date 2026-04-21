@@ -1,0 +1,13 @@
+{
+  "file": "max_voting_inference",
+  "total_inference": 103,
+  "matched": 103,
+  "unmatched_inference": 0,
+  "missing_manual": 0,
+  "accuracy": 0.8737864077669902,
+  "precision": 0.8163265306122449,
+  "recall": 0.9090909090909091,
+  "f1": 0.8602150537634409,
+  "roc_auc": 0.9533898305084746,
+  "average_precision": 0.9176731846019973
+}

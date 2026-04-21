@@ -24,7 +24,6 @@ import json
 import os
 from typing import Dict, List
 
-import numpy as np
 import pandas as pd
 
 try:
@@ -98,6 +97,8 @@ def analyze_one(
     y_true = merged[manual_label].astype(int)
     y_pred = merged[pred_col].astype(int)
     y_prob = merged[prob_col].astype(float)
+    roc_auc = None
+    ap = None
 
     # Confusion matrix
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
@@ -177,17 +178,9 @@ def analyze_one(
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+        "roc_auc": float(roc_auc) if roc_auc is not None else None,
+        "average_precision": float(ap) if ap is not None else None,
     }
-
-    # add ROC/AP if computed
-    try:
-        summary["roc_auc"] = float(roc_auc)
-    except Exception:
-        summary["roc_auc"] = None
-    try:
-        summary["average_precision"] = float(ap)
-    except Exception:
-        summary["average_precision"] = None
 
     with open(os.path.join(out_sub, f"{basename}_summary.json"), "w") as fh:
         json.dump(summary, fh, indent=2)
@@ -197,15 +190,20 @@ def analyze_one(
 
 def main(argv: List[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Analyze inference results against manual labels.")
-    parser.add_argument("--inference-dir", default="inference_results", help="Folder with inference CSVs")
-    parser.add_argument("--manual-file", default="data/test_set_manual.csv", help="Manual labels CSV")
-    parser.add_argument("--out-dir", default="inference_analysis", help="Output folder for plots and metrics")
+    parser.add_argument("--inference-dir", required=True, help="Folder with inference CSVs")
+    parser.add_argument("--manual-file", required=True, help="Manual labels CSV")
+    parser.add_argument("--out-dir", required=True, help="Output folder for plots and metrics")
     parser.add_argument("--id-col", default="app_id", help="ID column name in inference CSVs (default: app_id)")
     parser.add_argument("--manual-id", default="pkg_name", help="ID column name in manual CSV (default: pkg_name)")
     parser.add_argument("--manual-label", default="label", help="Label column name in manual CSV (default: label)")
     parser.add_argument("--prob-col", default="y_prob", help="Probability column name in inference CSVs (default: y_prob)")
     parser.add_argument("--pred-col", default="prediction_label", help="Prediction label column name in inference CSVs (default: prediction_label)")
     args = parser.parse_args(args=argv)
+
+    if not os.path.isdir(args.inference_dir):
+        parser.error(f"Inference directory not found: {args.inference_dir}")
+    if not os.path.isfile(args.manual_file):
+        parser.error(f"Manual labels file not found: {args.manual_file}")
 
     if plt is None or sns is None:
         print("Warning: matplotlib or seaborn not available. Install them to get plots:")

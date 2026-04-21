@@ -26,12 +26,13 @@ from utils.inference_helper import (
 
 MODELS_DIR = Path(CFG.runs_dir) / CFG.run_name
 
+
+def print_section(title: str) -> None:
+    print(f"\n=== {title} ===")
+
 def run_preprocessing_for_inference(raw_jsonl_path: str, output_jsonl_path: str):
-    print("\n" + "=" * 60)
-    print("STEP 1: Preprocessing")
-    print("=" * 60)
+    print_section("STEP 1: Preprocessing")
     from steps import preprocessing
-    import json
     
     rows = []
     with open(raw_jsonl_path, "r", encoding="utf-8") as f:
@@ -65,11 +66,8 @@ def run_preprocessing_for_inference(raw_jsonl_path: str, output_jsonl_path: str)
     print(f"✓ Saved to {output_jsonl_path}")
 
 def run_ocr_for_inference(dataset_path: str):
-    print("\n" + "=" * 60)
-    print("STEP 2: OCR Extraction")
-    print("=" * 60)
+    print_section("STEP 2: OCR Extraction")
     from steps import run_ocr
-    import json
     from tqdm import tqdm
     
     rows = []
@@ -121,9 +119,7 @@ def run_feature_extraction_for_inference(dataset_path: str, features_output_dir:
         
         from steps import extract_text_features, extract_image_features, extract_slm_features
         
-        print("\n" + "=" * 60)
-        print("STEP 3a: Text Features")
-        print("=" * 60)
+        print_section("STEP 3a: Text Features")
         
         original_dataset_path = CFG.dataset_path
         original_features_dir = CFG.features_dir
@@ -132,14 +128,10 @@ def run_feature_extraction_for_inference(dataset_path: str, features_output_dir:
         
         extract_text_features.main()
         
-        print("\n" + "=" * 60)
-        print("STEP 3b: Image Features")
-        print("=" * 60)
+        print_section("STEP 3b: Image Features")
         extract_image_features.main()
         
-        print("\n" + "=" * 60)
-        print("STEP 3c: SLM Features")
-        print("=" * 60)
+        print_section("STEP 3c: SLM Features")
         extract_slm_features.main()
         
         object.__setattr__(CFG, 'dataset_path', original_dataset_path)
@@ -187,7 +179,7 @@ def print_and_save_report(name, app_ids, y_true, y_prob, threshold, output_csv, 
         metrics = compute_binary_metrics(y_true, y_prob, threshold=threshold)
         print(f"  Accuracy: {metrics['accuracy']:.3f}  Precision: {metrics['precision_pos']:.3f}  Recall: {metrics['recall_pos']:.3f}  F1: {metrics['f1_pos']:.3f}")
     else:
-        print(f"  Predicted {sum([p['prediction_label'] for p in preds])} apps with LLM")
+        print(f"  Predicted {sum(p['prediction_label'] for p in preds)} apps with LLM")
 
 def ensemble_early_fusion(X_all, num_folds=None):
     if num_folds is None:
@@ -293,9 +285,7 @@ def cleanup_inference_images(dataset_path: str, images_root: str) -> None:
             # Ignore non-empty or locked directories.
             pass
 
-    print("\n" + "=" * 60)
-    print("  IMAGE CLEANUP")
-    print("=" * 60)
+    print_section("IMAGE CLEANUP")
     print(f"Removed files: {removed_files}")
     if missing_files:
         print(f"Already missing: {missing_files}")
@@ -331,9 +321,7 @@ def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, outpu
             shutil.rmtree(artifact_abs)
             removed_dirs += 1
 
-    print("\n" + "=" * 60)
-    print("  ARTIFACT CLEANUP")
-    print("=" * 60)
+    print_section("ARTIFACT CLEANUP")
     print(f"Removed files: {removed_files}")
     print(f"Removed directories: {removed_dirs}")
     if skipped_output_dir:
@@ -345,10 +333,10 @@ def main():
   python src/run_inference.py --input data/features --output predictions
   python src/run_inference.py --input-raw data/apps_inference_raw.jsonl --output predictions""")
     
-    input_group = parser.add_mutually_exclusive_group(required=False)
-    input_group.add_argument("--input", "-i", type=str, help=f"Path to features directory (default: {CFG.inference_features_dir})")
-    input_group.add_argument("--input-raw", type=str, help=f"Path to raw JSONL (default: {CFG.raw_inference_dataset_path})")
-    parser.add_argument("--output", "-o", type=str, default=CFG.inference_output_dir, help=f"Output directory (default: {CFG.inference_output_dir})")
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("--input", "-i", type=str, help="Path to pre-extracted features directory")
+    input_group.add_argument("--input-raw", type=str, help="Path to raw JSONL")
+    parser.add_argument("--output", "-o", type=str, required=True, help="Output directory")
     parser.add_argument("--skip-preprocessing", action="store_true", help="Skip preprocessing")
     parser.add_argument("--skip-ocr", action="store_true", help="Skip OCR")
     parser.add_argument("--keep-images", action="store_true", help="Keep downloaded images after inference when using --input-raw")
@@ -364,9 +352,7 @@ def main():
             print(f"[ERROR] File not found: {raw_jsonl_path}")
             return
         
-        print("=" * 60)
-        print("  FULL INFERENCE PIPELINE")
-        print("=" * 60)
+        print_section("FULL INFERENCE PIPELINE")
         
         preprocessed_path = CFG.inference_dataset_path
         features_dir = CFG.inference_features_dir
@@ -382,25 +368,21 @@ def main():
             print("\n[SKIP] OCR")
         
         run_feature_extraction_for_inference(preprocessed_path, features_dir)
-        TEST_FEATURES_DIR = Path(features_dir)
+        test_features_dir = Path(features_dir)
     else:
-        TEST_FEATURES_DIR = Path(args.input) if args.input else Path(CFG.features_dir)
-        print("=" * 60)
-        print("  INFERENCE FROM PRE-EXTRACTED FEATURES")
-        print("=" * 60)
+        test_features_dir = Path(args.input)
+        print_section("INFERENCE FROM PRE-EXTRACTED FEATURES")
     
-    OUTPUT_DIR_CUSTOM = Path(args.output)
-    OUTPUT_DIR_CUSTOM.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    if not TEST_FEATURES_DIR.exists():
-        print(f"[ERROR] Features not found: {TEST_FEATURES_DIR}")
+    if not test_features_dir.exists():
+        print(f"[ERROR] Features not found: {test_features_dir}")
         return
     
-    print("\n" + "=" * 60)
-    print("  LOADING FEATURES & RUNNING INFERENCE")
-    print("=" * 60)
+    print_section("LOADING FEATURES & RUNNING INFERENCE")
     
-    app_ids, labels, text_feats, image_feats, all_feats, has_real_labels = load_test_features(TEST_FEATURES_DIR)
+    app_ids, labels, text_feats, image_feats, all_feats, has_real_labels = load_test_features(test_features_dir)
     print(f"Loaded {len(app_ids)} apps")
     
     early_fusion_dir = MODELS_DIR / "fusion" / "early_fusion"
@@ -413,38 +395,28 @@ def main():
     soft_opt_threshold = get_optimal_threshold(soft_voting_dir)
     max_opt_threshold = get_optimal_threshold(max_voting_dir)
     
-    print("\n" + "=" * 60)
-    print("  EARLY FUSION")
-    print("=" * 60)
+    print_section("EARLY FUSION")
     ef_prob = ensemble_early_fusion(all_feats)
     print_and_save_report("EARLY FUSION", app_ids, labels, ef_prob, ef_opt_threshold,
-                         OUTPUT_DIR_CUSTOM / "early_fusion_inference.csv", has_real_labels)
+                         output_dir / "early_fusion_inference.csv", has_real_labels)
     
-    print("\n" + "=" * 60)
-    print("  STACKING")
-    print("=" * 60)
+    print_section("STACKING")
     stack_prob = ensemble_late_fusion_stacking(text_feats, image_feats)
     print_and_save_report("STACKING", app_ids, labels, stack_prob, stack_opt_threshold,
-                         OUTPUT_DIR_CUSTOM / "stacking_inference.csv", has_real_labels)
+                         output_dir / "stacking_inference.csv", has_real_labels)
     
-    print("\n" + "=" * 60)
-    print("  SOFT VOTING")
-    print("=" * 60)
+    print_section("SOFT VOTING")
     soft_prob = ensemble_late_fusion_soft_voting(text_feats, image_feats)
     print_and_save_report("SOFT VOTING", app_ids, labels, soft_prob, soft_opt_threshold,
-                         OUTPUT_DIR_CUSTOM / "soft_voting_inference.csv", has_real_labels)
+                         output_dir / "soft_voting_inference.csv", has_real_labels)
     
-    print("\n" + "=" * 60)
-    print("  MAX VOTING")
-    print("=" * 60)
+    print_section("MAX VOTING")
     max_prob = ensemble_late_fusion_max_voting(text_feats, image_feats)
     print_and_save_report("MAX VOTING", app_ids, labels, max_prob, max_opt_threshold,
-                         OUTPUT_DIR_CUSTOM / "max_voting_inference.csv", has_real_labels)
+                         output_dir / "max_voting_inference.csv", has_real_labels)
     
-    print("\n" + "=" * 60)
-    print("  ✓ COMPLETED")
-    print("=" * 60)
-    print(f"\nResults: {OUTPUT_DIR_CUSTOM}")
+    print_section("COMPLETED")
+    print(f"Results: {output_dir}")
     print(f"  - early_fusion_inference.csv")
     print(f"  - stacking_inference.csv")
     print(f"  - soft_voting_inference.csv")
@@ -456,7 +428,7 @@ def main():
         print("\n[SKIP] Image cleanup because --keep-images was set")
 
     if args.input_raw and not args.keep_artifacts:
-        cleanup_inference_artifacts(preprocessed_path, features_dir, OUTPUT_DIR_CUSTOM)
+        cleanup_inference_artifacts(preprocessed_path, features_dir, output_dir)
     elif args.input_raw and args.keep_artifacts:
         print("\n[SKIP] Artifact cleanup because --keep-artifacts was set")
 
