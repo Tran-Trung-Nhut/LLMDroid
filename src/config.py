@@ -14,6 +14,7 @@ class Config:
     n_folds: int = 5
 
     # ── Data ──
+    raw_dataset_path: str = "data/apps_raw.jsonl"
     raw_inference_dataset_path: str = "data/apps_inference_raw.jsonl"
     inference_dataset_path: str = "data/apps_inference.jsonl"  # Preprocessed inference data
     dataset_path: str = "data/apps.jsonl"
