@@ -24,11 +24,22 @@ python src/train_pipeline.py
 ```
 
 Pipeline steps:
-1. Preprocess app text + deduplicate screenshots
-2. Create stratified 5-fold splits
+1. Ensure screenshots exist locally (download missing images from Play Store)
+2. Preprocess app text + deduplicate screenshots
 3. Run OCR on screenshots
-4. Extract text, image, and SLM features
-5. Train/evaluate text-only, image-only, and fusion models
+4. Create stratified 5-fold splits
+5. Extract text, image, and SLM features
+6. Train/evaluate text-only, image-only, and fusion models
+7. Remove newly downloaded images after training (default behavior)
+
+Useful flags:
+```bash
+# Skip image download step
+python src/train_pipeline.py --skip-image-download
+
+# Keep downloaded images after pipeline completes
+python src/train_pipeline.py --keep-images
+```
 
 ---
 

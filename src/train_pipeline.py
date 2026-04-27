@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -11,6 +12,162 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 from config import CFG
+
+
+def _resolve_abs_path(path_str: str) -> Path:
+    p = Path(path_str)
+    return p.resolve() if p.is_absolute() else (_PROJECT_ROOT / p).resolve()
+
+
+def _is_within_dir(path: Path, root_dir: Path) -> bool:
+    try:
+        path.relative_to(root_dir)
+        return True
+    except ValueError:
+        return False
+
+
+def step_download_training_images() -> list[Path]:
+    """
+    Step 0: Ensure screenshot files exist locally.
+    Downloads missing images for each app from Play Store metadata and updates raw dataset paths.
+    Returns list of files newly downloaded in this run for optional cleanup.
+    """
+    raw_path = _resolve_abs_path(CFG.raw_dataset_path)
+    if not raw_path.exists():
+        print(f"[skip] Raw dataset not found at {raw_path}")
+        return []
+
+    print("\n" + "=" * 60)
+    print("STEP 0: Ensure Training Images")
+    print("=" * 60)
+
+    rows = []
+    with open(raw_path, "r", encoding="utf-8") as f:
+        for line in f:
+            rows.append(json.loads(line))
+
+    from fetch_app_metadata import AppMetadataFetcher
+
+    fetcher = AppMetadataFetcher()
+    images_root = _resolve_abs_path(CFG.images_dir)
+
+    downloaded_abs_paths = set()
+    updated = 0
+    skipped = 0
+    attempted = 0
+    failed_fetch = 0
+
+    for row in rows:
+        app_id = row.get("app_id")
+        if not app_id:
+            skipped += 1
+            continue
+
+        original_paths = row.get("image_paths", []) or []
+        existing_paths = []
+        missing_detected = False
+
+        for rel_path in original_paths:
+            abs_path = _resolve_abs_path(rel_path)
+            if abs_path.exists() and abs_path.is_file():
+                existing_paths.append(rel_path)
+            else:
+                missing_detected = True
+
+        if original_paths and not missing_detected:
+            skipped += 1
+            continue
+
+        attempted += 1
+
+        app_image_dir = images_root / app_id
+        existed_before = set()
+        if app_image_dir.exists() and app_image_dir.is_dir():
+            for existing in app_image_dir.iterdir():
+                if existing.is_file():
+                    existed_before.add(existing.resolve())
+
+        play_data = fetcher.fetch_play_store_metadata(app_id)
+        if not play_data:
+            failed_fetch += 1
+            new_paths = existing_paths
+        else:
+            screenshot_urls = play_data.get("screenshots", [])
+            downloaded_paths = fetcher.download_screenshots(app_id, screenshot_urls)
+            if downloaded_paths:
+                new_paths = downloaded_paths
+            else:
+                new_paths = existing_paths
+
+            for rel_path in downloaded_paths:
+                abs_path = _resolve_abs_path(rel_path)
+                if abs_path.exists() and abs_path.is_file() and abs_path not in existed_before:
+                    downloaded_abs_paths.add(abs_path)
+
+        if new_paths != original_paths:
+            row["image_paths"] = new_paths
+            updated += 1
+
+    if updated > 0:
+        with open(raw_path, "w", encoding="utf-8") as f:
+            for row in rows:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    print(f"Apps checked: {len(rows)}")
+    print(f"Already complete: {skipped}")
+    print(f"Download attempts: {attempted}")
+    print(f"Metadata fetch failed: {failed_fetch}")
+    print(f"New files downloaded: {len(downloaded_abs_paths)}")
+    if updated > 0:
+        print(f"Updated image_paths in: {updated} records")
+    else:
+        print("No raw dataset rows needed updating")
+
+    return sorted(downloaded_abs_paths)
+
+
+def step_cleanup_downloaded_images(downloaded_paths: list[Path]) -> None:
+    """Remove images downloaded in current run and prune now-empty app folders."""
+    if not downloaded_paths:
+        print("\n[skip] Cleanup downloaded images: nothing new was downloaded")
+        return
+
+    print("\n" + "=" * 60)
+    print("CLEANUP: Remove Downloaded Training Images")
+    print("=" * 60)
+
+    images_root = _resolve_abs_path(CFG.images_dir)
+    removed_files = 0
+    missing_files = 0
+    skipped_outside_root = 0
+    removed_parent_dirs = set()
+
+    for img_abs in downloaded_paths:
+        abs_path = img_abs.resolve()
+        if not _is_within_dir(abs_path, images_root):
+            skipped_outside_root += 1
+            continue
+
+        if abs_path.exists() and abs_path.is_file():
+            abs_path.unlink()
+            removed_files += 1
+            removed_parent_dirs.add(abs_path.parent)
+        else:
+            missing_files += 1
+
+    for parent in sorted(removed_parent_dirs, key=lambda p: len(p.parts), reverse=True):
+        try:
+            if parent.exists() and parent != images_root and not any(parent.iterdir()):
+                parent.rmdir()
+        except OSError:
+            pass
+
+    print(f"Removed files: {removed_files}")
+    if missing_files:
+        print(f"Already missing: {missing_files}")
+    if skipped_outside_root:
+        print(f"Skipped outside {images_root}: {skipped_outside_root}")
 
 
 def step_preprocess():
@@ -26,22 +183,22 @@ def step_preprocess():
 
 
 def step_make_splits():
-    """Step 2: Create stratified k-fold splits."""
+    """Step 3: Create stratified k-fold splits."""
     split_file = Path(CFG.splits_dir) / f"fold_{CFG.n_folds - 1}.json"
     if split_file.exists():
         print(f"[skip] Splits already exist in {CFG.splits_dir}")
         return
     print("\n" + "=" * 60)
-    print("STEP 2: Create Splits")
+    print("STEP 3: Create Splits")
     print("=" * 60)
     from steps import make_splits
     make_splits.main()
 
 
 def step_ocr():
-    """Step 3: Run Tesseract OCR on screenshots."""
+    """Step 2: Run Tesseract OCR on screenshots."""
     print("\n" + "=" * 60)
-    print("STEP 3: OCR")
+    print("STEP 2: OCR")
     print("=" * 60)
     from steps import run_ocr
     run_ocr.main()
@@ -96,8 +253,10 @@ def step_train_evaluate():
 
 def main():
     parser = argparse.ArgumentParser(description="V2 LLM Detector Pipeline")
+    parser.add_argument("--skip-image-download", action="store_true", help="Skip downloading missing training images")
     parser.add_argument("--skip-ocr", action="store_true", help="Skip OCR step")
     parser.add_argument("--skip-features", action="store_true", help="Skip feature extraction")
+    parser.add_argument("--keep-images", action="store_true", help="Keep newly downloaded images after training")
     parser.add_argument("--train-only", action="store_true", help="Only train & evaluate")
     args = parser.parse_args()
 
@@ -105,19 +264,32 @@ def main():
     print("  V2 LLM Detector — Feature Fusion Pipeline")
     print("=" * 60)
 
-    if not args.train_only:
-        step_preprocess()
+    downloaded_paths = []
+    try:
+        if not args.train_only:
+            if not args.skip_image_download:
+                downloaded_paths = step_download_training_images()
+            else:
+                print("\n[skip] STEP 0: Download training images")
 
-        if not args.skip_ocr:
-            step_ocr()
+            step_preprocess()
 
-        step_make_splits()
+            if not args.skip_ocr:
+                step_ocr()
 
-        if not args.skip_features:
-            step_extract_text_features()
-            step_extract_image_features()
-            step_extract_slm_features()
-    step_train_evaluate()
+            step_make_splits()
+
+            if not args.skip_features:
+                step_extract_text_features()
+                step_extract_image_features()
+                step_extract_slm_features()
+        step_train_evaluate()
+    finally:
+        if downloaded_paths:
+            if args.keep_images:
+                print("\n[skip] Cleanup downloaded images because --keep-images was set")
+            else:
+                step_cleanup_downloaded_images(downloaded_paths)
 
     print("\n" + "=" * 60)
     print("  Pipeline complete!")
