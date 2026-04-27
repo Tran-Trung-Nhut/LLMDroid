@@ -115,7 +115,12 @@ Score:"""
     
     # Feature selection
     feature_selection_k: int = 50  # Number of top features to select
+    inner_val_ratio: float = 0.2  # Validation split ratio inside each outer-train fold
+    stacking_inner_cv_folds: int = 4  # Inner OOF folds for late-fusion base predictions
     classification_threshold: float = 0.5  # Binary classification threshold
+    threshold_search_min: float = 0.30
+    threshold_search_max: float = 0.70
+    threshold_search_step: float = 0.01
     
     # Meta-learner (stacking fusion)
     meta_learner_C: float = 1.0
