@@ -1,0 +1,13 @@
+{
+  "file": "stacking_inference",
+  "total_inference": 110,
+  "matched": 110,
+  "unmatched_inference": 0,
+  "missing_manual": 0,
+  "accuracy": 0.8272727272727273,
+  "precision": 0.7049180327868853,
+  "recall": 0.9772727272727273,
+  "f1": 0.819047619047619,
+  "roc_auc": 0.9335399449035813,
+  "average_precision": 0.8569622150380639
+}

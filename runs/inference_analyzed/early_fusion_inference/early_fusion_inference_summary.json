@@ -1,0 +1,13 @@
+{
+  "file": "early_fusion_inference",
+  "total_inference": 110,
+  "matched": 110,
+  "unmatched_inference": 0,
+  "missing_manual": 0,
+  "accuracy": 0.8363636363636363,
+  "precision": 0.7166666666666667,
+  "recall": 0.9772727272727273,
+  "f1": 0.8269230769230769,
+  "roc_auc": 0.9345730027548209,
+  "average_precision": 0.8823160295862669
+}

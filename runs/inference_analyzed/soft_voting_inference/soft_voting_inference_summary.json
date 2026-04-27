@@ -1,0 +1,13 @@
+{
+  "file": "soft_voting_inference",
+  "total_inference": 110,
+  "matched": 110,
+  "unmatched_inference": 0,
+  "missing_manual": 0,
+  "accuracy": 0.8454545454545455,
+  "precision": 0.7288135593220338,
+  "recall": 0.9772727272727273,
+  "f1": 0.8349514563106796,
+  "roc_auc": 0.9252754820936638,
+  "average_precision": 0.8403100834375541
+}
