@@ -205,11 +205,20 @@ def ensemble_late_fusion_soft_voting(X_text, X_image, num_folds=None):
     if num_folds is None:
         num_folds = CFG.n_folds
     base_models_dir = MODELS_DIR / "fusion" / "base_models_saved"
-    
+
+    # Load per-fold alpha found during training; fall back to 0.5 if file absent
+    alpha_json = MODELS_DIR / "fusion" / "late_fusion_soft_voting" / "alpha_grid_search.json"
+    if alpha_json.exists():
+        with open(alpha_json) as f:
+            alpha_data = json.load(f)
+        alphas = alpha_data.get("alpha_per_fold", [0.5] * num_folds)
+    else:
+        alphas = [0.5] * num_folds
+
     fold_probs = []
     for fold in range(num_folds):
         text_prob, img_prob = load_and_predict_base_models(X_text, X_image, base_models_dir, fold)
-        final_prob = predict_soft_voting(text_prob, img_prob)
+        final_prob = predict_soft_voting(text_prob, img_prob, alpha=alphas[fold])
         fold_probs.append(final_prob)
     return ensemble_across_folds(fold_probs)
 

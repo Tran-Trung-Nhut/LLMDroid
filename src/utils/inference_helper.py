@@ -42,8 +42,8 @@ def predict_stacking_fusion(
     return final_prob
 
 
-def predict_soft_voting(text_prob: np.ndarray, img_prob: np.ndarray) -> np.ndarray:
-    return (text_prob + img_prob) / 2.0
+def predict_soft_voting(text_prob: np.ndarray, img_prob: np.ndarray, alpha: float = 0.5) -> np.ndarray:
+    return alpha * text_prob + (1.0 - alpha) * img_prob
 
 
 def predict_max_voting(text_prob: np.ndarray, img_prob: np.ndarray) -> np.ndarray:
