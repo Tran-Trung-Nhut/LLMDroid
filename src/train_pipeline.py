@@ -252,7 +252,11 @@ def step_train_evaluate():
 
 
 def step_k_sensitivity():
-    """Step 6: k sensitivity analysis for SelectKBest."""
+    """Step 6: k sensitivity analysis for SelectKBest.
+
+    Finds optimal k, updates config.py on disk, and patches CFG in-memory
+    so the subsequent train_evaluate step uses the correct k without restart.
+    """
     summary_path = Path(CFG.runs_dir) / CFG.run_name / "k_sensitivity" / "summary.json"
     if summary_path.exists():
         print(f"\n[skip] k sensitivity already done at {summary_path.parent}")
@@ -261,7 +265,10 @@ def step_k_sensitivity():
     print("STEP 6: k Sensitivity Analysis")
     print("=" * 60)
     from steps import k_sensitivity
-    k_sensitivity.main()
+    best_k = k_sensitivity.main()
+    if best_k is not None and best_k != CFG.feature_selection_k:
+        object.__setattr__(CFG, "feature_selection_k", best_k)
+        print(f"  → CFG.feature_selection_k patched to {best_k} for this run")
 
 
 def step_statistical_tests():

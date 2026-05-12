@@ -6,6 +6,7 @@ the chosen CFG.feature_selection_k value. No retraining of feature extractors
 needed — uses pre-computed features.
 """
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -77,17 +78,28 @@ def main():
 
     best_label = max(summary, key=lambda lbl: summary[lbl]["roc_auc_mean"])
     best_k = summary[best_label]["k"]
-    print(f"\n  Best k by ROC-AUC: {best_label}")
-    if best_k != CFG.feature_selection_k:
-        print(
-            f"  NOTE: optimal k ({best_label}) differs from "
-            f"CFG.feature_selection_k ({CFG.feature_selection_k}).\n"
-            f"  Update config.py and re-run the pipeline if the gap is significant."
-        )
+    old_k = CFG.feature_selection_k
+    print(f"\n  Best k by ROC-AUC: {best_label}  (AUC={summary[best_label]['roc_auc_mean']:.4f})")
+
+    if best_k != old_k:
+        _update_config_k(best_k)
+        print(f"  ✓ config.py updated: feature_selection_k {old_k} → {best_k}")
     else:
-        print(f"  Current k={CFG.feature_selection_k} is already optimal — no config change needed.")
+        print(f"  Current k={old_k} is already optimal — config unchanged.")
 
     print(f"\nResults saved to: {base_dir}")
+    return best_k
+
+
+def _update_config_k(new_k: int) -> None:
+    config_path = _PROJECT_ROOT / "src" / "config.py"
+    content = config_path.read_text(encoding="utf-8")
+    new_content = re.sub(
+        r"(feature_selection_k\s*:\s*int\s*=\s*)\d+",
+        rf"\g<1>{new_k}",
+        content,
+    )
+    config_path.write_text(new_content, encoding="utf-8")
 
 
 if __name__ == "__main__":
