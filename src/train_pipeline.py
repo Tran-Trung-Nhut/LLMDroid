@@ -243,12 +243,38 @@ def step_extract_slm_features():
 
 
 def step_train_evaluate():
-    """Step 5: Train classifiers and evaluate with 5-fold CV."""
+    """Step 5: Train classifiers, ablation study, and α grid search."""
     print("\n" + "=" * 60)
-    print("STEP 5: Train & Evaluate")
+    print("STEP 5: Train & Evaluate (+ Ablation + α grid search)")
     print("=" * 60)
     from steps import train_evaluate
     train_evaluate.main()
+
+
+def step_k_sensitivity():
+    """Step 6: k sensitivity analysis for SelectKBest."""
+    summary_path = Path(CFG.runs_dir) / CFG.run_name / "k_sensitivity" / "summary.json"
+    if summary_path.exists():
+        print(f"\n[skip] k sensitivity already done at {summary_path.parent}")
+        return
+    print("\n" + "=" * 60)
+    print("STEP 6: k Sensitivity Analysis")
+    print("=" * 60)
+    from steps import k_sensitivity
+    k_sensitivity.main()
+
+
+def step_statistical_tests():
+    """Step 7: McNemar + Bootstrap AUC significance tests."""
+    results_path = Path(CFG.runs_dir) / CFG.run_name / "statistical_tests" / "results.json"
+    if results_path.exists():
+        print(f"\n[skip] Statistical tests already done at {results_path.parent}")
+        return
+    print("\n" + "=" * 60)
+    print("STEP 7: Statistical Significance Tests")
+    print("=" * 60)
+    from steps import statistical_tests
+    statistical_tests.main()
 
 
 def main():
@@ -257,7 +283,8 @@ def main():
     parser.add_argument("--skip-ocr", action="store_true", help="Skip OCR step")
     parser.add_argument("--skip-features", action="store_true", help="Skip feature extraction")
     parser.add_argument("--keep-images", action="store_true", help="Keep newly downloaded images after training")
-    parser.add_argument("--train-only", action="store_true", help="Only train & evaluate")
+    parser.add_argument("--train-only", action="store_true", help="Only train & evaluate (includes ablation + α search)")
+    parser.add_argument("--skip-k-sensitivity", action="store_true", help="Skip k sensitivity analysis")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -283,7 +310,12 @@ def main():
                 step_extract_text_features()
                 step_extract_image_features()
                 step_extract_slm_features()
+
+        if not args.skip_k_sensitivity:
+            step_k_sensitivity()
+
         step_train_evaluate()
+        step_statistical_tests()
     finally:
         if downloaded_paths:
             if args.keep_images:

@@ -87,6 +87,7 @@ def load_features():
         "sbert": sbert,
         "keywords": keywords,
         "meta": meta,
+        "slm_score": slm_score,
         "clip_mean": clip_mean,
         "clip_max": clip_max,
         "zeroshot": zeroshot,
@@ -396,10 +397,10 @@ def run_fusion_experiment(data: dict, run_dir: Path):
         y_test = labels[test_idx]
 
         text_prob_meta, text_prob_test = build_oof_and_test_probs(
-            X_text_outer_train, y_outer_train, X_text_test, fold, k_features=100
+            X_text_outer_train, y_outer_train, X_text_test, fold, k_features=CFG.feature_selection_k
         )
         img_prob_meta, img_prob_test = build_oof_and_test_probs(
-            X_img_outer_train, y_outer_train, X_img_test, fold, k_features=100
+            X_img_outer_train, y_outer_train, X_img_test, fold, k_features=CFG.feature_selection_k
         )
 
         # Train one deployable model per fold for inference-time ensembling.
@@ -410,7 +411,7 @@ def run_fusion_experiment(data: dict, run_dir: Path):
             base_models_dir,
             selector_name=f"text_selector_fold_{fold}.joblib",
             model_name=f"text_lgbm_fold_{fold}.txt",
-            k_features=100,
+            k_features=CFG.feature_selection_k,
         )
         train_and_save_base_model(
             X_img_outer_train,
@@ -419,7 +420,7 @@ def run_fusion_experiment(data: dict, run_dir: Path):
             base_models_dir,
             selector_name=f"img_selector_fold_{fold}.joblib",
             model_name=f"img_lgbm_fold_{fold}.txt",
-            k_features=100,
+            k_features=CFG.feature_selection_k,
         )
 
         meta_fit_idx, meta_val_idx = make_inner_split_indices(y_outer_train, fold)
@@ -505,8 +506,17 @@ def run_fusion_experiment(data: dict, run_dir: Path):
                         "interpretation": f"Text: {weights[0]:.3f}, Image: {weights[1]:.3f}",
                     })
             elif strategy == "soft_voting":
-                y_prob = (text_prob_test + img_prob_test) / 2.0
-                y_prob_val = (text_prob_meta[meta_val_idx] + img_prob_meta[meta_val_idx]) / 2.0
+                # Grid search alpha on inner validation set; same inner split used for threshold tuning
+                _best_alpha, _best_val_auc = 0.5, -1.0
+                for _a in CFG.soft_voting_alpha_candidates:
+                    _vp = _a * text_prob_meta[meta_val_idx] + (1.0 - _a) * img_prob_meta[meta_val_idx]
+                    _m = compute_binary_metrics(
+                        y_meta[meta_val_idx], _vp, threshold=CFG.classification_threshold
+                    )
+                    if _m["roc_auc"] > _best_val_auc:
+                        _best_val_auc, _best_alpha = _m["roc_auc"], _a
+                y_prob = _best_alpha * text_prob_test + (1.0 - _best_alpha) * img_prob_test
+                y_prob_val = _best_alpha * text_prob_meta[meta_val_idx] + (1.0 - _best_alpha) * img_prob_meta[meta_val_idx]
                 y_meta_val = y_meta[meta_val_idx]
             elif strategy == "max_voting":
                 y_prob = np.maximum(text_prob_test, img_prob_test)
@@ -517,6 +527,8 @@ def run_fusion_experiment(data: dict, run_dir: Path):
 
             metrics = compute_binary_metrics(y_test, y_prob, threshold=CFG.classification_threshold)
             metrics["fold"] = fold
+            if strategy == "soft_voting":
+                metrics["best_alpha"] = _best_alpha
             fold_metrics.append(metrics)
 
             for i, idx in enumerate(test_idx):
@@ -538,12 +550,21 @@ def run_fusion_experiment(data: dict, run_dir: Path):
                     "y_prob": float(y_prob_val[i]),
                 })
 
+            _alpha_info = f"  α={metrics['best_alpha']:.1f}" if "best_alpha" in metrics else ""
             print(
                 f"    Fold {fold}: acc={metrics['accuracy']:.3f} "
-                f"f1={metrics['f1_pos']:.3f} auc={metrics['roc_auc']:.3f}"
+                f"f1={metrics['f1_pos']:.3f} auc={metrics['roc_auc']:.3f}{_alpha_info}"
             )
 
         agg = aggregate_metrics(fold_metrics)
+        if strategy == "soft_voting":
+            _alphas = [m.get("best_alpha", 0.5) for m in fold_metrics]
+            write_json(strategy_dir / "alpha_grid_search.json", {
+                "alpha_per_fold": _alphas,
+                "mean_alpha": round(float(np.mean(_alphas)), 2),
+                "alpha_candidates": list(CFG.soft_voting_alpha_candidates),
+            })
+            print(f"    ── SOFT_VOTING alpha per fold: {_alphas}  mean={np.mean(_alphas):.2f}")
         write_json(strategy_dir / "metrics_per_fold.json", fold_metrics)
         write_json(strategy_dir / "metrics_aggregated.json", agg)
         write_predictions_csv(strategy_dir / "predictions.csv", all_preds)
@@ -562,6 +583,58 @@ def run_fusion_experiment(data: dict, run_dir: Path):
             f"auc={agg['roc_auc_mean']:.3f}±{agg['roc_auc_std']:.3f}"
         )
         print(f"    ── {strategy.upper()} VALIDATION BEST THRESHOLD: {best['best_threshold']:.2f}")
+
+
+# ── Ablation study ────────────────────────────────────────────────────────────
+
+def run_ablation_experiment(data: dict, run_dir: Path):
+    """Ablation study on text-branch feature components.
+
+    Tests all 7 subsets of {SBERT, Handcrafted (Keywords+Meta), SLM} to
+    quantify each component's individual contribution.
+    """
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    handcrafted = np.concatenate([data["keywords"], data["meta"]], axis=1)
+
+    ablation_configs = {
+        "sbert_only":        data["sbert"],
+        "handcrafted_only":  handcrafted,
+        "slm_only":          data["slm_score"],
+        "sbert_handcrafted": np.concatenate([data["sbert"], handcrafted], axis=1),
+        "sbert_slm":         np.concatenate([data["sbert"], data["slm_score"]], axis=1),
+        "handcrafted_slm":   np.concatenate([handcrafted, data["slm_score"]], axis=1),
+        "full_text":         data["text_feats"],
+    }
+
+    summary = {}
+    for name, X in ablation_configs.items():
+        marker = " (full)" if name == "full_text" else ""
+        print(f"\n  [Ablation] {name}{marker}  ({X.shape[1]} dims)")
+        _, fold_metrics = run_single_experiment(name, X, data, run_dir / name)
+        agg = aggregate_metrics(fold_metrics)
+        summary[name] = {
+            "n_dims": int(X.shape[1]),
+            "roc_auc_mean": round(agg["roc_auc_mean"], 4),
+            "roc_auc_std": round(agg["roc_auc_std"], 4),
+            "f1_pos_mean": round(agg["f1_pos_mean"], 4),
+            "f1_pos_std": round(agg["f1_pos_std"], 4),
+        }
+
+    write_json(run_dir / "ablation_summary.json", summary)
+
+    print("\n" + "=" * 74)
+    print("ABLATION STUDY — Text Branch Components")
+    print("=" * 74)
+    print(f"  {'Config':<22} {'Dims':>5}  {'ROC-AUC':>14}  {'F1':>14}")
+    print("  " + "-" * 68)
+    for name, r in summary.items():
+        marker = " ←" if name == "full_text" else "  "
+        print(
+            f"  {name:<22} {r['n_dims']:>5}{marker} "
+            f"{r['roc_auc_mean']:.4f}±{r['roc_auc_std']:.4f}  "
+            f"{r['f1_pos_mean']:.4f}±{r['f1_pos_std']:.4f}"
+        )
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
@@ -596,6 +669,16 @@ def main():
     print("[C] Fusion Classifiers")
     print("=" * 60)
     run_fusion_experiment(data, base_dir / "fusion")
+
+    # Experiment D: Ablation study (skip if already done)
+    ablation_dir = base_dir / "ablation"
+    if (ablation_dir / "ablation_summary.json").exists():
+        print(f"\n[skip] Ablation already done at {ablation_dir}")
+    else:
+        print("\n" + "=" * 60)
+        print("[D] Ablation Study — Text Branch")
+        print("=" * 60)
+        run_ablation_experiment(data, ablation_dir)
 
     # Threshold summary from validation predictions
     print("\n" + "=" * 60)
