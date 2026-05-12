@@ -148,16 +148,15 @@ def load_test_features(features_dir: Path):
     print(f"Loading features from {features_dir}...")
     td = np.load(features_dir / "text" / "features.npz", allow_pickle=True)
     imd = np.load(features_dir / "image" / "features.npz", allow_pickle=True)
-    slmd = np.load(features_dir / "slm" / "features.npz", allow_pickle=True)
 
     app_ids = list(td["app_ids"])
     labels = td["labels"]
     has_real_labels = len(np.unique(labels)) > 1
-    
-    text_feats = np.concatenate([td["sbert"], td["keywords"], td["meta"], slmd["slm_score"]], axis=1)
+
+    text_feats = np.concatenate([td["sbert"], td["keywords"], td["meta"]], axis=1)
     image_feats = np.concatenate([imd["clip_mean"], imd["clip_max"], imd["zeroshot"], imd["ocr"]], axis=1)
     all_feats = np.concatenate([text_feats, image_feats], axis=1)
-    
+
     assert list(td["app_ids"]) == list(imd["app_ids"])
     return app_ids, labels, text_feats, image_feats, all_feats, has_real_labels
 

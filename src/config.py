@@ -118,7 +118,6 @@ Score:"""
     feature_selection_k: int = 200  # Number of top features to select
     soft_voting_alpha_candidates: tuple = (0.3, 0.4, 0.5, 0.6, 0.7)
     k_sensitivity_values: tuple = (20, 50, 100, 200, 500)  # k values to test in sensitivity analysis
-    slm_n_forced: int = 1  # SLM features at tail of text_feats always included regardless of F-statistic
     inner_val_ratio: float = 0.2  # Validation split ratio inside each outer-train fold
     stacking_inner_cv_folds: int = 4  # Inner OOF folds for late-fusion base predictions
     classification_threshold: float = 0.5  # Binary classification threshold

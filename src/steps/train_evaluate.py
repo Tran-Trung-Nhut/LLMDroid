@@ -45,33 +45,27 @@ from utils.seed import set_seed
 def load_features():
     text_path = Path(CFG.features_dir) / "text" / "features.npz"
     image_path = Path(CFG.features_dir) / "image" / "features.npz"
-    slm_path = Path(CFG.features_dir) / "slm" / "features.npz"
 
     td = np.load(text_path, allow_pickle=True)
     imd = np.load(image_path, allow_pickle=True)
-    slmd = np.load(slm_path, allow_pickle=True)
 
     app_ids = list(td["app_ids"])
     labels = td["labels"]
 
     # text features
-    sbert = td["sbert"]  # (N, 1024)
-    keywords = td["keywords"]  # (N, 13)
-    meta = td["meta"]  # (N, 21)
+    sbert = td["sbert"]       # (N, 1024)
+    keywords = td["keywords"] # (N, 13)
+    meta = td["meta"]         # (N, 21)
 
     # image features
     clip_mean = imd["clip_mean"]  # (N, 768)
-    clip_max = imd["clip_max"]  # (N, 768)
-    zeroshot = imd["zeroshot"]  # (N, ~12)
-    ocr = imd["ocr"]  # (N, 15)
-
-    # SLM reasoning score
-    slm_score = slmd["slm_score"]  # (N, 1)
+    clip_max = imd["clip_max"]    # (N, 768)
+    zeroshot = imd["zeroshot"]    # (N, ~12)
+    ocr = imd["ocr"]              # (N, 15)
 
     assert list(td["app_ids"]) == list(imd["app_ids"]), "Feature files must have same app order"
 
-    # Build feature groups
-    text_feats = np.concatenate([sbert, keywords, meta, slm_score], axis=1)
+    text_feats = np.concatenate([sbert, keywords, meta], axis=1)
     image_feats = np.concatenate([clip_mean, clip_max, zeroshot, ocr], axis=1)
     all_feats = np.concatenate([text_feats, image_feats], axis=1)
 
@@ -87,12 +81,21 @@ def load_features():
         "sbert": sbert,
         "keywords": keywords,
         "meta": meta,
-        "slm_score": slm_score,
         "clip_mean": clip_mean,
         "clip_max": clip_max,
         "zeroshot": zeroshot,
         "ocr": ocr,
     }
+
+
+def load_slm_score(app_ids: list) -> Optional[np.ndarray]:
+    """Load SLM features for ablation comparison only. Returns None if not cached."""
+    slm_path = Path(CFG.features_dir) / "slm" / "features.npz"
+    if not slm_path.exists():
+        return None
+    slmd = np.load(slm_path, allow_pickle=True)
+    assert list(slmd["app_ids"]) == app_ids, "SLM feature order mismatch"
+    return slmd["slm_score"]  # (N, 1)
 
 
 def load_split(fold: int):
@@ -185,81 +188,26 @@ def predict_lgbm(model, X):
     return model.predict(X)
 
 
-class ForcedTailSelector:
-    """Wraps SelectKBest to always include the last n_forced_tail features.
-
-    SelectKBest selects top (k - n_forced_tail) from the body; the tail
-    features (e.g. the single SLM score) are concatenated unconditionally.
-    Implements .transform() so it is a drop-in replacement for inference.
-    """
-
-    def __init__(self, inner: Optional[SelectKBest], n_body: int, n_forced_tail: int):
-        self.inner = inner          # None when the entire input is forced (body is empty)
-        self.n_body = n_body
-        self.n_forced_tail = n_forced_tail
-
-    def _split(self, X: np.ndarray):
-        return X[:, :self.n_body], X[:, self.n_body:]
-
-    def transform(self, X: np.ndarray) -> np.ndarray:
-        body, tail = self._split(X)
-        if self.inner is not None:
-            return np.concatenate([self.inner.transform(body), tail], axis=1)
-        return tail
-
-    def get_support(self, indices: bool = False):
-        if self.inner is not None:
-            body_mask = self.inner.get_support(indices=False)
-        else:
-            body_mask = np.zeros(self.n_body, dtype=bool)
-        tail_mask = np.ones(self.n_forced_tail, dtype=bool)
-        full_mask = np.concatenate([body_mask, tail_mask])
-        return np.where(full_mask)[0] if indices else full_mask
-
-
 def fit_select_kbest(
     X_train: np.ndarray,
     y_train: np.ndarray,
     X_eval: np.ndarray,
     X_test: np.ndarray,
     k_features: int,
-    n_forced_tail: int = 0,
 ):
-    n_total = X_train.shape[1]
-
-    if n_forced_tail == 0:
-        actual_k = min(k_features, n_total)
-        selector = SelectKBest(score_func=f_classif, k=actual_k)
-        return selector, selector.fit_transform(X_train, y_train), selector.transform(X_eval), selector.transform(X_test)
-
-    # Force-include tail; SelectKBest on the body only
-    n_body = n_total - n_forced_tail
-    k_body = min(max(k_features - n_forced_tail, 0), n_body)
-
-    X_tr_body, X_tr_tail = X_train[:, :n_body], X_train[:, n_body:]
-    X_ev_body, X_ev_tail = X_eval[:, :n_body], X_eval[:, n_body:]
-    X_te_body, X_te_tail = X_test[:, :n_body], X_test[:, n_body:]
-
-    if k_body > 0:
-        inner = SelectKBest(score_func=f_classif, k=k_body)
-        inner.fit(X_tr_body, y_train)
-        X_tr_sel = np.concatenate([inner.transform(X_tr_body), X_tr_tail], axis=1)
-        X_ev_sel = np.concatenate([inner.transform(X_ev_body), X_ev_tail], axis=1)
-        X_te_sel = np.concatenate([inner.transform(X_te_body), X_te_tail], axis=1)
-    else:
-        # Entire feature set is in the forced tail (e.g. slm_only)
-        inner = None
-        X_tr_sel, X_ev_sel, X_te_sel = X_tr_tail, X_ev_tail, X_te_tail
-
-    wrapper = ForcedTailSelector(inner=inner, n_body=n_body, n_forced_tail=n_forced_tail)
-    return wrapper, X_tr_sel, X_ev_sel, X_te_sel
+    actual_k = min(k_features, X_train.shape[1])
+    selector = SelectKBest(score_func=f_classif, k=actual_k)
+    X_train_sel = selector.fit_transform(X_train, y_train)
+    X_eval_sel = selector.transform(X_eval)
+    X_test_sel = selector.transform(X_test)
+    return selector, X_train_sel, X_eval_sel, X_test_sel
 
 
 # ── Single branch experiments (text/image/early-fusion) ─────────────────────
 
 def run_single_experiment(
     name: str, X_all: np.ndarray, data: dict, run_dir: Path,
-    k_features: Optional[int] = None, n_forced_tail: int = 0,
+    k_features: Optional[int] = None,
 ):
     if k_features is None:
         k_features = CFG.feature_selection_k
@@ -290,7 +238,7 @@ def run_single_experiment(
         y_val = y_outer_train[inner_val_rel]
 
         selector, X_train_sel, X_val_sel, X_test_sel = fit_select_kbest(
-            X_train, y_train, X_val, X_test, k_features, n_forced_tail=n_forced_tail
+            X_train, y_train, X_val, X_test, k_features
         )
         joblib.dump(selector, models_dir / f"selector_fold_{fold}.joblib")
 
@@ -373,7 +321,6 @@ def build_oof_and_test_probs(
     X_test: np.ndarray,
     fold: int,
     k_features: int,
-    n_forced_tail: int = 0,
 ):
     n_splits = resolve_inner_cv_splits(y_outer_train, CFG.stacking_inner_cv_folds)
     inner_cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=CFG.seed + fold)
@@ -388,7 +335,7 @@ def build_oof_and_test_probs(
         y_val = y_outer_train[inner_val_idx]
 
         selector, X_train_sel, X_val_sel, X_test_sel = fit_select_kbest(
-            X_train, y_train, X_val, X_test, k_features, n_forced_tail=n_forced_tail
+            X_train, y_train, X_val, X_test, k_features
         )
         model = train_lgbm(X_train_sel, y_train, X_val_sel, y_val)
 
@@ -407,7 +354,6 @@ def train_and_save_base_model(
     selector_name: str,
     model_name: str,
     k_features: int,
-    n_forced_tail: int = 0,
 ):
     inner_train_rel, inner_val_rel = make_inner_split_indices(y_outer_train, fold)
     X_train = X_outer_train[inner_train_rel]
@@ -416,7 +362,7 @@ def train_and_save_base_model(
     y_val = y_outer_train[inner_val_rel]
 
     selector, X_train_sel, X_val_sel, _ = fit_select_kbest(
-        X_train, y_train, X_val, X_val, k_features, n_forced_tail=n_forced_tail
+        X_train, y_train, X_val, X_val, k_features
     )
     model = train_lgbm(X_train_sel, y_train, X_val_sel, y_val)
 
@@ -436,8 +382,7 @@ def run_fusion_experiment(data: dict, run_dir: Path):
     labels = data["labels"]
 
     print("\n[C1] Early Fusion (all features → LightGBM)")
-    run_single_experiment("EarlyFusion", data["all_feats"], data, run_dir / "early_fusion",
-                          n_forced_tail=0)  # SLM not at tail of all_feats; no force-include
+    run_single_experiment("EarlyFusion", data["all_feats"], data, run_dir / "early_fusion")
 
     print(f"\n[C2] Late Fusion - Training base models (strict OOF protocol)...")
     fold_predictions = []
@@ -457,33 +402,25 @@ def run_fusion_experiment(data: dict, run_dir: Path):
 
         text_prob_meta, text_prob_test = build_oof_and_test_probs(
             X_text_outer_train, y_outer_train, X_text_test, fold,
-            k_features=CFG.feature_selection_k, n_forced_tail=CFG.slm_n_forced
+            k_features=CFG.feature_selection_k
         )
         img_prob_meta, img_prob_test = build_oof_and_test_probs(
             X_img_outer_train, y_outer_train, X_img_test, fold,
-            k_features=CFG.feature_selection_k, n_forced_tail=0
+            k_features=CFG.feature_selection_k
         )
 
         # Train one deployable model per fold for inference-time ensembling.
         train_and_save_base_model(
-            X_text_outer_train,
-            y_outer_train,
-            fold,
-            base_models_dir,
+            X_text_outer_train, y_outer_train, fold, base_models_dir,
             selector_name=f"text_selector_fold_{fold}.joblib",
             model_name=f"text_lgbm_fold_{fold}.txt",
             k_features=CFG.feature_selection_k,
-            n_forced_tail=CFG.slm_n_forced,
         )
         train_and_save_base_model(
-            X_img_outer_train,
-            y_outer_train,
-            fold,
-            base_models_dir,
+            X_img_outer_train, y_outer_train, fold, base_models_dir,
             selector_name=f"img_selector_fold_{fold}.joblib",
             model_name=f"img_lgbm_fold_{fold}.txt",
             k_features=CFG.feature_selection_k,
-            n_forced_tail=0,
         )
 
         meta_fit_idx, meta_val_idx = make_inner_split_indices(y_outer_train, fold)
@@ -659,24 +596,29 @@ def run_ablation_experiment(data: dict, run_dir: Path):
     run_dir.mkdir(parents=True, exist_ok=True)
 
     handcrafted = np.concatenate([data["keywords"], data["meta"]], axis=1)
-    n_forced = CFG.slm_n_forced
 
-    ablation_configs = {
-        "sbert_only":        (data["sbert"],                                              0),
-        "handcrafted_only":  (handcrafted,                                                0),
-        "slm_only":          (data["slm_score"],                                          n_forced),
-        "sbert_handcrafted": (np.concatenate([data["sbert"], handcrafted], axis=1),       0),
-        "sbert_slm":         (np.concatenate([data["sbert"], data["slm_score"]], axis=1), n_forced),
-        "handcrafted_slm":   (np.concatenate([handcrafted, data["slm_score"]], axis=1),   n_forced),
-        "full_text":         (data["text_feats"],                                         n_forced),
+    # SLM is loaded separately (ablation only); main pipeline does not use SLM
+    slm_score = load_slm_score(data["app_ids"])
+    has_slm = slm_score is not None
+
+    ablation_configs: dict[str, np.ndarray] = {
+        "sbert_only":        data["sbert"],
+        "handcrafted_only":  handcrafted,
+        "sbert_handcrafted": data["text_feats"],  # canonical text_feats = SBERT+Keywords+Meta
     }
+    if has_slm:
+        ablation_configs["slm_only"]          = slm_score
+        ablation_configs["sbert_slm"]         = np.concatenate([data["sbert"], slm_score], axis=1)
+        ablation_configs["handcrafted_slm"]   = np.concatenate([handcrafted, slm_score], axis=1)
+        ablation_configs["sbert_handcrafted_slm"] = np.concatenate([data["text_feats"], slm_score], axis=1)
+    else:
+        print("  [Ablation] SLM features not found — skipping SLM configs")
 
     summary = {}
-    for name, (X, forced) in ablation_configs.items():
-        marker = " (full)" if name == "full_text" else ""
-        print(f"\n  [Ablation] {name}{marker}  ({X.shape[1]} dims, forced={forced})")
-        _, fold_metrics = run_single_experiment(name, X, data, run_dir / name,
-                                                n_forced_tail=forced)
+    for name, X in ablation_configs.items():
+        marker = " ← main" if name == "sbert_handcrafted" else ""
+        print(f"\n  [Ablation] {name}{marker}  ({X.shape[1]} dims)")
+        _, fold_metrics = run_single_experiment(name, X, data, run_dir / name)
         agg = aggregate_metrics(fold_metrics)
         summary[name] = {
             "n_dims": int(X.shape[1]),
@@ -691,12 +633,12 @@ def run_ablation_experiment(data: dict, run_dir: Path):
     print("\n" + "=" * 74)
     print("ABLATION STUDY — Text Branch Components")
     print("=" * 74)
-    print(f"  {'Config':<22} {'Dims':>5}  {'ROC-AUC':>14}  {'F1':>14}")
+    print(f"  {'Config':<28} {'Dims':>5}  {'ROC-AUC':>14}  {'F1':>14}")
     print("  " + "-" * 68)
     for name, r in summary.items():
-        marker = " ←" if name == "full_text" else "  "
+        marker = " ← main" if name == "sbert_handcrafted" else "       "
         print(
-            f"  {name:<22} {r['n_dims']:>5}{marker} "
+            f"  {name:<28} {r['n_dims']:>5}{marker} "
             f"{r['roc_auc_mean']:.4f}±{r['roc_auc_std']:.4f}  "
             f"{r['f1_pos_mean']:.4f}±{r['f1_pos_std']:.4f}"
         )
@@ -717,19 +659,17 @@ def main():
         f"all_feats={data['all_feats'].shape[1]}d"
     )
 
-    # Experiment A: Text-only (SLM force-included — never dropped by SelectKBest)
+    # Experiment A: Text-only
     print("\n" + "=" * 60)
     print("[A] Text-Only Classifier")
     print("=" * 60)
-    run_single_experiment("TextOnly", data["text_feats"], data, base_dir / "text_only",
-                          n_forced_tail=CFG.slm_n_forced)
+    run_single_experiment("TextOnly", data["text_feats"], data, base_dir / "text_only")
 
     # Experiment B: Image-only
     print("\n" + "=" * 60)
     print("[B] Image-Only Classifier")
     print("=" * 60)
-    run_single_experiment("ImageOnly", data["image_feats"], data, base_dir / "image_only",
-                          n_forced_tail=0)
+    run_single_experiment("ImageOnly", data["image_feats"], data, base_dir / "image_only")
 
     # Experiment C: Fusion
     print("\n" + "=" * 60)

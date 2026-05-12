@@ -316,6 +316,8 @@ def main():
             if not args.skip_features:
                 step_extract_text_features()
                 step_extract_image_features()
+                # SLM features are only used in the ablation study (not main pipeline).
+                # Run step_extract_slm_features() manually if data/features/slm/ is missing.
                 step_extract_slm_features()
 
         if not args.skip_k_sensitivity:
