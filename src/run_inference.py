@@ -117,23 +117,20 @@ def run_feature_extraction_for_inference(dataset_path: str, features_output_dir:
                 shutil.rmtree(temp_features_link)
         temp_features_link.symlink_to(features_dir.resolve())
         
-        from steps import extract_text_features, extract_image_features, extract_slm_features
-        
+        from steps import extract_text_features, extract_image_features
+
         print_section("STEP 3a: Text Features")
-        
+
         original_dataset_path = CFG.dataset_path
         original_features_dir = CFG.features_dir
         object.__setattr__(CFG, 'dataset_path', dataset_path)
         object.__setattr__(CFG, 'features_dir', str(features_dir))
-        
+
         extract_text_features.main()
-        
+
         print_section("STEP 3b: Image Features")
         extract_image_features.main()
-        
-        print_section("STEP 3c: SLM Features")
-        extract_slm_features.main()
-        
+
         object.__setattr__(CFG, 'dataset_path', original_dataset_path)
         object.__setattr__(CFG, 'features_dir', original_features_dir)
         print(f"\n✓ Features extracted to {features_dir}")
