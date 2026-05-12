@@ -1,0 +1,5 @@
+comparison,auc_base,auc_cmp,delta_auc,ci95_lower,ci95_upper,p_bootstrap,mcnemar_n01,mcnemar_n10,mcnemar_p
+early_fusion,0.8711,0.8597,-0.0115,-0.0466,0.0237,0.7205,21,26,0.5596
+late_stacking,0.8711,0.8954,0.0243,-0.0046,0.0557,0.046,18,20,0.8711
+late_max_voting,0.8711,0.8898,0.0187,-0.0148,0.0559,0.152,24,29,0.5827
+late_soft_voting,0.8711,0.897,0.0259,-0.0029,0.0576,0.043,19,19,0.8711

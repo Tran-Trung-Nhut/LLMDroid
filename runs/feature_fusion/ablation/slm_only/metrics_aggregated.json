@@ -1,0 +1,16 @@
+{
+  "accuracy_mean": 0.5805084745762713,
+  "accuracy_std": 0.003459731275117492,
+  "precision_pos_mean": 0.0,
+  "precision_pos_std": 0.0,
+  "recall_pos_mean": 0.0,
+  "recall_pos_std": 0.0,
+  "f1_pos_mean": 0.0,
+  "f1_pos_std": 0.0,
+  "macro_f1_mean": 0.36728919071873234,
+  "macro_f1_std": 0.0013862420728823729,
+  "pr_auc_mean": 0.43358731260544675,
+  "pr_auc_std": 0.021008928684754014,
+  "roc_auc_mean": 0.5226588235294118,
+  "roc_auc_std": 0.04209705868723514
+}
