@@ -74,17 +74,18 @@ Score:"""
 
     # ── CLIP zero-shot prompts (carefully crafted for LLM detection) ──
     clip_positive_prompts: tuple = (
-        "a screenshot of an AI chatbot conversation",
-        "a mobile app with AI chat assistant interface",
-        "a screenshot showing AI-generated text responses",
-        "an app with a large language model powered chat",
-        "a conversational AI interface on a phone screen",
+        "a screenshot of a chatbot conversation interface",
+        "a screenshot of an AI assistant",
+        "a mobile app conversation between user and AI",
+        "a chat bubble interface for messaging an AI",
+        "a text input box at the bottom of a chat thread",
     )
     clip_negative_prompts: tuple = (
-        "a mobile app screenshot with no AI features",
-        "a standard mobile application interface",
-        "a photo editing or camera app screenshot",
-        "a settings or profile page of a mobile app",
+        "a screenshot of a settings or preferences page",
+        "a screenshot of a calendar or scheduling app",
+        "a screenshot of a photo gallery or media viewer",
+        "a screenshot of a login or onboarding screen",
+        "a screenshot of a list of products in an e-commerce app",
     )
 
     # ── Feature cache ──
@@ -92,7 +93,7 @@ Score:"""
 
     # ── Classifier ──
     classifier_type: str = "lightgbm"   # "lightgbm" or "xgboost"
-    fusion_strategy: list[str] = field(default_factory=lambda: ["stacking", "max_voting", "soft_voting"])   # "stacking" or "max_voting" or "soft_voting"
+    fusion_strategy: list[str] = field(default_factory=lambda: ["stacking", "score_max", "soft_voting"])
     
     # LightGBM training parameters
     lgbm_num_rounds: int = 500

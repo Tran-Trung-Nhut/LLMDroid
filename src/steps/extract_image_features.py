@@ -97,36 +97,15 @@ def encode_texts_clip(texts: list[str], processor, model, device) -> np.ndarray:
 def compute_zeroshot_scores(image_embeds: np.ndarray,
                             pos_text_embeds: np.ndarray,
                             neg_text_embeds: np.ndarray) -> np.ndarray:
-    """
-    Given per-image CLIP embeds and prompt embeds, compute per-app scores.
-    Returns feature vector:
-      - max_pos_sim: max similarity to any positive prompt across all images  (1)
-      - mean_pos_sim: mean similarity to positive prompts                     (1)
-      - per-positive-prompt max sim                                           (n_pos)
-      - max_neg_sim                                                           (1)
-      - mean_neg_sim                                                          (1)
-      - pos_minus_neg: max_pos - max_neg (discriminative gap)                 (1)
-    """
+    """s_chat = max(positive_sims) - min(negative_sims). Returns shape (1,)."""
     if image_embeds.shape[0] == 0:
-        n_feats = 4 + pos_text_embeds.shape[0] + 1
-        return np.zeros(n_feats, dtype=np.float32)
+        return np.zeros(1, dtype=np.float32)
 
-    # (N_images, N_pos)
-    pos_sims = image_embeds @ pos_text_embeds.T
-    # (N_images, N_neg)
-    neg_sims = image_embeds @ neg_text_embeds.T
+    pos_sims = image_embeds @ pos_text_embeds.T   # (N_images, N_pos)
+    neg_sims = image_embeds @ neg_text_embeds.T   # (N_images, N_neg)
 
-    max_pos = float(pos_sims.max())
-    mean_pos = float(pos_sims.mean())
-    per_prompt_max = pos_sims.max(axis=0).tolist()
-    max_neg = float(neg_sims.max())
-    mean_neg = float(neg_sims.mean())
-    gap = max_pos - max_neg
-
-    return np.array(
-        [max_pos, mean_pos] + per_prompt_max + [max_neg, mean_neg, gap],
-        dtype=np.float32,
-    )
+    s_chat = float(pos_sims.max()) - float(neg_sims.min())
+    return np.array([s_chat], dtype=np.float32)
 
 
 # ── OCR keyword features ─────────────────────────────────────────────────────
@@ -200,7 +179,7 @@ def main():
 
     clip_mean = np.stack(clip_mean_list)    # (N, 768)
     clip_max = np.stack(clip_max_list)      # (N, 768)
-    zeroshot = np.stack(zs_list)            # (N, ~12)
+    zeroshot = np.stack(zs_list)            # (N, 1)
     ocr = np.stack(ocr_list)               # (N, 15)
 
     np.savez_compressed(

@@ -1,0 +1,118 @@
+"""
+temporal_split.py — Table 15: Temporal generalization.
+
+D_cut = 2025-06-01. Train on apps <= D_cut, test on apps > D_cut.
+"""
+import os
+import sys
+from pathlib import Path
+from datetime import datetime
+
+import numpy as np
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+os.chdir(_PROJECT_ROOT)
+if str(_SCRIPT_DIR.parent) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR.parent))
+
+from config import CFG
+from utils.io import read_jsonl, write_json
+from utils.seed import set_seed
+from utils.metrics import compute_binary_metrics
+from steps.train_evaluate import (
+    load_features, train_lgbm, predict_lgbm,
+    fit_select_kbest, find_best_threshold_from_arrays,
+)
+
+D_CUT = datetime(2025, 6, 1)
+
+
+def parse_date(date_str):
+    if not date_str:
+        return None
+    for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]:
+        try:
+            return datetime.strptime(str(date_str)[:10], "%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def main():
+    set_seed(CFG.seed)
+    base_dir = Path(CFG.runs_dir) / CFG.run_name
+    out_dir = base_dir / "temporal_split"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    records = read_jsonl(CFG.dataset_path)
+    app_date = {r["app_id"]: parse_date(r.get("last_updated") or r.get("updated")) for r in records}
+
+    data = load_features()
+    app_ids = data["app_ids"]
+    labels = data["labels"]
+
+    train_idx, test_idx = [], []
+    skipped = 0
+    for i, aid in enumerate(app_ids):
+        dt = app_date.get(aid)
+        if dt is None:
+            skipped += 1
+            train_idx.append(i)
+            continue
+        (train_idx if dt <= D_CUT else test_idx).append(i)
+
+    print(f"Temporal split: train={len(train_idx)}, test={len(test_idx)}, skipped_date={skipped}")
+    if len(test_idx) == 0:
+        print("[error] No test apps found after D_cut. Check 'last_updated' field in apps.jsonl.")
+        return
+
+    train_idx, test_idx = np.array(train_idx), np.array(test_idx)
+    y_train, y_test = labels[train_idx], labels[test_idx]
+
+    rng = np.random.RandomState(CFG.seed)
+    n_val = max(1, int(len(train_idx) * 0.2))
+    val_rel = rng.choice(len(train_idx), n_val, replace=False)
+    train_rel = np.setdiff1d(np.arange(len(train_idx)), val_rel)
+
+    feature_results = {}
+    for name, X_all in [("Text-Only", data["text_feats"]), ("Early Fusion", data["all_feats"])]:
+        X_train, X_test_feats = X_all[train_idx], X_all[test_idx]
+        _, X_tr_sel, X_val_sel, X_te_sel = fit_select_kbest(
+            X_train[train_rel], y_train[train_rel],
+            X_train[val_rel], X_test_feats, CFG.feature_selection_k,
+        )
+        model = train_lgbm(X_tr_sel, y_train[train_rel], X_val_sel, y_train[val_rel])
+        y_prob = predict_lgbm(model, X_te_sel)
+        m = compute_binary_metrics(y_test, y_prob, threshold=0.5)
+        print(f"  {name}: F1={m['f1_pos']:.3f} ROC-AUC={m['roc_auc']:.3f}")
+        feature_results[name] = m
+
+    X_text_tr = data["text_feats"][train_idx]
+    X_img_tr  = data["image_feats"][train_idx]
+    X_text_te = data["text_feats"][test_idx]
+    X_img_te  = data["image_feats"][test_idx]
+
+    _, Xtt, Xtv, Xte_t = fit_select_kbest(X_text_tr[train_rel], y_train[train_rel],
+                                           X_text_tr[val_rel], X_text_te, CFG.feature_selection_k)
+    _, Xit, Xiv, Xte_i = fit_select_kbest(X_img_tr[train_rel], y_train[train_rel],
+                                           X_img_tr[val_rel], X_img_te, CFG.feature_selection_k)
+    m_text = train_lgbm(Xtt, y_train[train_rel], Xtv, y_train[val_rel])
+    m_img  = train_lgbm(Xit, y_train[train_rel], Xiv, y_train[val_rel])
+    p_text = predict_lgbm(m_text, Xte_t)
+    p_img  = predict_lgbm(m_img, Xte_i)
+
+    for strat_name, y_prob in [
+        ("Score-Max",   np.maximum(p_text, p_img)),
+        ("Soft Voting", 0.5 * p_text + 0.5 * p_img),
+    ]:
+        m = compute_binary_metrics(y_test, y_prob, threshold=0.5)
+        print(f"  {strat_name}: F1={m['f1_pos']:.3f} ROC-AUC={m['roc_auc']:.3f}")
+        feature_results[strat_name] = m
+
+    write_json(out_dir / "table15_temporal.json", feature_results)
+    print(f"\nSaved: {out_dir}")
+
+
+if __name__ == "__main__":
+    main()

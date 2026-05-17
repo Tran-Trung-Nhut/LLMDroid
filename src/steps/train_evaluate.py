@@ -21,7 +21,7 @@ from typing import Optional
 import joblib
 import lightgbm as lgb
 import numpy as np
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -60,7 +60,7 @@ def load_features():
     # image features
     clip_mean = imd["clip_mean"]  # (N, 768)
     clip_max = imd["clip_max"]    # (N, 768)
-    zeroshot = imd["zeroshot"]    # (N, ~12)
+    zeroshot = imd["zeroshot"]    # (N, 1)
     ocr = imd["ocr"]              # (N, 15)
 
     assert list(td["app_ids"]) == list(imd["app_ids"]), "Feature files must have same app order"
@@ -196,7 +196,7 @@ def fit_select_kbest(
     k_features: int,
 ):
     actual_k = min(k_features, X_train.shape[1])
-    selector = SelectKBest(score_func=f_classif, k=actual_k)
+    selector = SelectKBest(score_func=mutual_info_classif, k=actual_k)
     X_train_sel = selector.fit_transform(X_train, y_train)
     X_eval_sel = selector.transform(X_eval)
     X_test_sel = selector.transform(X_test)
@@ -506,19 +506,18 @@ def run_fusion_experiment(data: dict, run_dir: Path):
                         "interpretation": f"Text: {weights[0]:.3f}, Image: {weights[1]:.3f}",
                     })
             elif strategy == "soft_voting":
-                # Grid search alpha on inner validation set; same inner split used for threshold tuning
-                _best_alpha, _best_val_auc = 0.5, -1.0
+                _best_alpha, _best_val_f1 = 0.5, -1.0
                 for _a in CFG.soft_voting_alpha_candidates:
                     _vp = _a * text_prob_meta[meta_val_idx] + (1.0 - _a) * img_prob_meta[meta_val_idx]
                     _m = compute_binary_metrics(
                         y_meta[meta_val_idx], _vp, threshold=CFG.classification_threshold
                     )
-                    if _m["roc_auc"] > _best_val_auc:
-                        _best_val_auc, _best_alpha = _m["roc_auc"], _a
+                    if _m["f1_pos"] > _best_val_f1:
+                        _best_val_f1, _best_alpha = _m["f1_pos"], _a
                 y_prob = _best_alpha * text_prob_test + (1.0 - _best_alpha) * img_prob_test
                 y_prob_val = _best_alpha * text_prob_meta[meta_val_idx] + (1.0 - _best_alpha) * img_prob_meta[meta_val_idx]
                 y_meta_val = y_meta[meta_val_idx]
-            elif strategy == "max_voting":
+            elif strategy == "score_max":
                 y_prob = np.maximum(text_prob_test, img_prob_test)
                 y_prob_val = np.maximum(text_prob_meta[meta_val_idx], img_prob_meta[meta_val_idx])
                 y_meta_val = y_meta[meta_val_idx]
