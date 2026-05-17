@@ -393,12 +393,12 @@ def main():
     early_fusion_dir = MODELS_DIR / "fusion" / "early_fusion"
     stacking_dir = MODELS_DIR / "fusion" / "late_fusion_stacking"
     soft_voting_dir = MODELS_DIR / "fusion" / "late_fusion_soft_voting"
-    max_voting_dir = MODELS_DIR / "fusion" / "late_fusion_max_voting"
-    
+    score_max_dir = MODELS_DIR / "fusion" / "late_fusion_score_max"
+
     ef_opt_threshold = get_optimal_threshold(early_fusion_dir)
     stack_opt_threshold = get_optimal_threshold(stacking_dir)
     soft_opt_threshold = get_optimal_threshold(soft_voting_dir)
-    max_opt_threshold = get_optimal_threshold(max_voting_dir)
+    score_max_opt_threshold = get_optimal_threshold(score_max_dir)
     
     print_section("EARLY FUSION")
     ef_prob = ensemble_early_fusion(all_feats)
@@ -415,17 +415,17 @@ def main():
     print_and_save_report("SOFT VOTING", app_ids, labels, soft_prob, soft_opt_threshold,
                          output_dir / "soft_voting_inference.csv", has_real_labels)
     
-    print_section("MAX VOTING")
-    max_prob = ensemble_late_fusion_max_voting(text_feats, image_feats)
-    print_and_save_report("MAX VOTING", app_ids, labels, max_prob, max_opt_threshold,
-                         output_dir / "max_voting_inference.csv", has_real_labels)
-    
+    print_section("SCORE-MAX")
+    score_max_prob = ensemble_late_fusion_max_voting(text_feats, image_feats)
+    print_and_save_report("SCORE-MAX", app_ids, labels, score_max_prob, score_max_opt_threshold,
+                         output_dir / "score_max_inference.csv", has_real_labels)
+
     print_section("COMPLETED")
     print(f"Results: {output_dir}")
     print(f"  - early_fusion_inference.csv")
     print(f"  - stacking_inference.csv")
     print(f"  - soft_voting_inference.csv")
-    print(f"  - max_voting_inference.csv")
+    print(f"  - score_max_inference.csv")
 
     if args.input_raw and not args.keep_images:
         cleanup_inference_images(CFG.inference_dataset_path, CFG.images_dir)

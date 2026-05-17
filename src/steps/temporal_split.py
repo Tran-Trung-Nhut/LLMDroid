@@ -16,6 +16,10 @@ os.chdir(_PROJECT_ROOT)
 if str(_SCRIPT_DIR.parent) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR.parent))
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import StandardScaler
+
 from config import CFG
 from utils.io import read_jsonl, write_json
 from utils.seed import set_seed
@@ -102,15 +106,78 @@ def main():
     p_text = predict_lgbm(m_text, Xte_t)
     p_img  = predict_lgbm(m_img, Xte_i)
 
+    oof_text = np.zeros(len(train_idx))
+    oof_img  = np.zeros(len(train_idx))
+    inner_cv = StratifiedKFold(n_splits=4, shuffle=True, random_state=CFG.seed)
+
+    for in_tr, in_val in inner_cv.split(X_text_tr, y_train):
+        _, Xtt_in, Xtv_in, _ = fit_select_kbest(X_text_tr[in_tr], y_train[in_tr],
+                                                  X_text_tr[in_val], X_text_te, CFG.feature_selection_k)
+        mdl_t_in = train_lgbm(Xtt_in, y_train[in_tr], Xtv_in, y_train[in_val])
+        oof_text[in_val] = predict_lgbm(mdl_t_in, Xtv_in)
+
+        _, Xit_in, Xiv_in, _ = fit_select_kbest(X_img_tr[in_tr], y_train[in_tr],
+                                                  X_img_tr[in_val], X_img_te, CFG.feature_selection_k)
+        mdl_i_in = train_lgbm(Xit_in, y_train[in_tr], Xiv_in, y_train[in_val])
+        oof_img[in_val] = predict_lgbm(mdl_i_in, Xiv_in)
+
+    scaler   = StandardScaler()
+    meta_clf = LogisticRegression(C=CFG.meta_learner_C, solver="lbfgs",
+                                   max_iter=CFG.meta_learner_max_iter, random_state=CFG.seed)
+    meta_clf.fit(scaler.fit_transform(np.column_stack([oof_text, oof_img])), y_train)
+    p_stack = meta_clf.predict_proba(scaler.transform(np.column_stack([p_text, p_img])))[:, 1]
+
+    import json as _json
+    sv_alpha_path = base_dir / "fusion" / "late_fusion_soft_voting" / "alpha_grid_search.json"
+    sv_alpha = 0.5
+    if sv_alpha_path.exists():
+        with open(sv_alpha_path) as f:
+            sv_alpha = _json.load(f).get("mean_alpha", 0.5)
+
     for strat_name, y_prob in [
         ("Score-Max",   np.maximum(p_text, p_img)),
-        ("Soft Voting", 0.5 * p_text + 0.5 * p_img),
+        ("Soft Voting", sv_alpha * p_text + (1.0 - sv_alpha) * p_img),
+        ("Stacking",    p_stack),
     ]:
         m = compute_binary_metrics(y_test, y_prob, threshold=0.5)
         print(f"  {strat_name}: F1={m['f1_pos']:.3f} ROC-AUC={m['roc_auc']:.3f}")
         feature_results[strat_name] = m
 
-    write_json(out_dir / "table15_temporal.json", feature_results)
+    random_f1 = {}
+    cv_sources = {
+        "Text-Only":    base_dir / "text_only" / "metrics_aggregated.json",
+        "Early Fusion": base_dir / "fusion" / "early_fusion" / "metrics_aggregated.json",
+        "Score-Max":    base_dir / "fusion" / "late_fusion_score_max" / "metrics_aggregated.json",
+        "Soft Voting":  base_dir / "fusion" / "late_fusion_soft_voting" / "metrics_aggregated.json",
+        "Stacking":     base_dir / "fusion" / "late_fusion_stacking" / "metrics_aggregated.json",
+    }
+    for name, path in cv_sources.items():
+        if path.exists():
+            with open(path) as f:
+                agg = _json.load(f)
+            random_f1[name] = round(agg.get("f1_pos_mean", 0.0), 3)
+
+    table15 = {}
+    for name, m in feature_results.items():
+        temporal_f1 = round(m.get("f1_pos", 0.0), 3)
+        rand_f1     = random_f1.get(name)
+        delta       = round(temporal_f1 - rand_f1, 3) if rand_f1 is not None else None
+        table15[name] = {
+            "random_f1":        rand_f1,
+            "temporal_f1":      temporal_f1,
+            "delta":            delta,
+            "roc_auc_temporal": round(m.get("roc_auc", 0.0), 3),
+        }
+
+    write_json(out_dir / "table15_temporal.json", table15)
+
+    print(f"\nTable 15 (Temporal Generalization, D_cut=2025-06-01):")
+    print(f"  {'Strategy':<16} {'Random F1':>10} {'Temporal F1':>12} {'Δ':>7} {'ROC-AUC(temp)':>14}")
+    print("  " + "-" * 65)
+    for name, r in table15.items():
+        rf = f"{r['random_f1']:.3f}" if r["random_f1"] is not None else "N/A"
+        d  = f"{r['delta']:+.3f}"    if r["delta"]      is not None else "N/A"
+        print(f"  {name:<16} {rf:>10} {r['temporal_f1']:>12.3f} {d:>7} {r['roc_auc_temporal']:>14.3f}")
     print(f"\nSaved: {out_dir}")
 
 

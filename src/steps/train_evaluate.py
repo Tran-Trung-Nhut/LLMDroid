@@ -1,16 +1,4 @@
-"""
-train_evaluate.py — Train and evaluate classifiers with 5-fold CV.
-
-Three experiment modes run automatically:
-  A) Text-only  classifier   (SBERT + keywords + meta)
-  B) Image-only classifier   (CLIP + zero-shot + OCR keywords)
-  C) Fusion classifier        (all features, late-fusion stacking)
-
-Evaluation protocol:
-  - Outer fold test is used only once for final evaluation.
-  - Early stopping and threshold tuning use only inner validation data.
-  - Stacking meta-learner is trained on out-of-fold (OOF) base predictions.
-"""
+"""train_evaluate.py — 5-fold CV training and evaluation for all fusion strategies."""
 import json
 import os
 import sys
@@ -40,8 +28,6 @@ from utils.metrics import compute_binary_metrics
 from utils.seed import set_seed
 
 
-# ── Feature loading ──────────────────────────────────────────────────────────
-
 def load_features():
     text_path = Path(CFG.features_dir) / "text" / "features.npz"
     image_path = Path(CFG.features_dir) / "image" / "features.npz"
@@ -52,16 +38,14 @@ def load_features():
     app_ids = list(td["app_ids"])
     labels = td["labels"]
 
-    # text features
-    sbert = td["sbert"]       # (N, 1024)
-    keywords = td["keywords"] # (N, 13)
-    meta = td["meta"]         # (N, 21)
+    sbert    = td["sbert"]
+    keywords = td["keywords"]
+    meta     = td["meta"]
 
-    # image features
-    clip_mean = imd["clip_mean"]  # (N, 768)
-    clip_max = imd["clip_max"]    # (N, 768)
-    zeroshot = imd["zeroshot"]    # (N, 1)
-    ocr = imd["ocr"]              # (N, 15)
+    clip_mean = imd["clip_mean"]
+    clip_max  = imd["clip_max"]
+    zeroshot  = imd["zeroshot"]
+    ocr       = imd["ocr"]
 
     assert list(td["app_ids"]) == list(imd["app_ids"]), "Feature files must have same app order"
 
@@ -103,8 +87,6 @@ def load_split(fold: int):
     with open(split_path) as f:
         return json.load(f)
 
-
-# ── Utility helpers ──────────────────────────────────────────────────────────
 
 def make_inner_split_indices(y: np.ndarray, fold: int, val_size: Optional[float] = None):
     y = np.asarray(y).astype(int)
@@ -159,8 +141,6 @@ def find_best_threshold_from_arrays(y_true, y_prob) -> dict:
     return best_metrics
 
 
-# ── LightGBM classifier ──────────────────────────────────────────────────────
-
 def train_lgbm(X_train, y_train, X_val, y_val, num_rounds=None):
     if num_rounds is None:
         num_rounds = CFG.lgbm_num_rounds
@@ -202,8 +182,6 @@ def fit_select_kbest(
     X_test_sel = selector.transform(X_test)
     return selector, X_train_sel, X_eval_sel, X_test_sel
 
-
-# ── Single branch experiments (text/image/early-fusion) ─────────────────────
 
 def run_single_experiment(
     name: str, X_all: np.ndarray, data: dict, run_dir: Path,
@@ -313,8 +291,6 @@ def aggregate_metrics(fold_metrics: list[dict]) -> dict:
     return agg
 
 
-# ── Fusion helpers ────────────────────────────────────────────────────────────
-
 def build_oof_and_test_probs(
     X_outer_train: np.ndarray,
     y_outer_train: np.ndarray,
@@ -370,8 +346,6 @@ def train_and_save_base_model(
     model.save_model(str(models_dir / model_name))
 
 
-# ── Fusion experiment ────────────────────────────────────────────────────────
-
 def run_fusion_experiment(data: dict, run_dir: Path):
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -409,7 +383,6 @@ def run_fusion_experiment(data: dict, run_dir: Path):
             k_features=CFG.feature_selection_k
         )
 
-        # Train one deployable model per fold for inference-time ensembling.
         train_and_save_base_model(
             X_text_outer_train, y_outer_train, fold, base_models_dir,
             selector_name=f"text_selector_fold_{fold}.joblib",
@@ -439,7 +412,6 @@ def run_fusion_experiment(data: dict, run_dir: Path):
         })
         print(f"  Fold {fold}: Base OOF predictions built & models saved")
 
-    # ── Apply each fusion strategy ──
     print(f"\n[C2] Late Fusion - Testing {len(CFG.fusion_strategy)} strategies...")
     for strategy in CFG.fusion_strategy:
         print(f"\n  → Strategy: {strategy.upper()}")
@@ -584,8 +556,6 @@ def run_fusion_experiment(data: dict, run_dir: Path):
         print(f"    ── {strategy.upper()} VALIDATION BEST THRESHOLD: {best['best_threshold']:.2f}")
 
 
-# ── Ablation study ────────────────────────────────────────────────────────────
-
 def run_ablation_experiment(data: dict, run_dir: Path):
     """Ablation study on text-branch feature components.
 
@@ -596,7 +566,6 @@ def run_ablation_experiment(data: dict, run_dir: Path):
 
     handcrafted = np.concatenate([data["keywords"], data["meta"]], axis=1)
 
-    # SLM is loaded separately (ablation only); main pipeline does not use SLM
     slm_score = load_slm_score(data["app_ids"])
     has_slm = slm_score is not None
 
@@ -643,8 +612,6 @@ def run_ablation_experiment(data: dict, run_dir: Path):
         )
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
-
 def main():
     set_seed(CFG.seed)
     base_dir = Path(CFG.runs_dir) / CFG.run_name
@@ -658,25 +625,21 @@ def main():
         f"all_feats={data['all_feats'].shape[1]}d"
     )
 
-    # Experiment A: Text-only
     print("\n" + "=" * 60)
     print("[A] Text-Only Classifier")
     print("=" * 60)
     run_single_experiment("TextOnly", data["text_feats"], data, base_dir / "text_only")
 
-    # Experiment B: Image-only
     print("\n" + "=" * 60)
     print("[B] Image-Only Classifier")
     print("=" * 60)
     run_single_experiment("ImageOnly", data["image_feats"], data, base_dir / "image_only")
 
-    # Experiment C: Fusion
     print("\n" + "=" * 60)
     print("[C] Fusion Classifiers")
     print("=" * 60)
     run_fusion_experiment(data, base_dir / "fusion")
 
-    # Experiment D: Ablation study (skip if already done)
     ablation_dir = base_dir / "ablation"
     if (ablation_dir / "ablation_summary.json").exists():
         print(f"\n[skip] Ablation already done at {ablation_dir}")
@@ -686,7 +649,6 @@ def main():
         print("=" * 60)
         run_ablation_experiment(data, ablation_dir)
 
-    # Threshold summary from validation predictions
     print("\n" + "=" * 60)
     print("Validation-based threshold summary ...")
     search_paths = ["text_only", "image_only", "fusion/early_fusion"]

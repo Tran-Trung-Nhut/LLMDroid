@@ -54,48 +54,87 @@ def platt_scale(y_true_val, y_prob_val, y_prob_test):
 
 def main():
     base_dir = Path(CFG.runs_dir) / CFG.run_name
-    out_dir = base_dir / "calibration"
+    out_dir  = base_dir / "calibration"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    strategies = {
-        "Text-Only":    (base_dir / "text_only" / "predictions.csv",
-                         base_dir / "text_only" / "validation_predictions.csv"),
-        "Early Fusion": (base_dir / "fusion" / "early_fusion" / "predictions.csv",
-                         base_dir / "fusion" / "early_fusion" / "validation_predictions.csv"),
-        "Score-Max":    (base_dir / "fusion" / "late_fusion_score_max" / "predictions.csv",
-                         base_dir / "fusion" / "late_fusion_score_max" / "validation_predictions.csv"),
-        "Soft Voting":  (base_dir / "fusion" / "late_fusion_soft_voting" / "predictions.csv",
-                         base_dir / "fusion" / "late_fusion_soft_voting" / "validation_predictions.csv"),
-        "Stacking":     (base_dir / "fusion" / "late_fusion_stacking" / "predictions.csv",
-                         base_dir / "fusion" / "late_fusion_stacking" / "validation_predictions.csv"),
+    strategy_dirs = {
+        "Text-Only":    base_dir / "text_only",
+        "Early Fusion": base_dir / "fusion" / "early_fusion",
+        "Score-Max":    base_dir / "fusion" / "late_fusion_score_max",
+        "Soft Voting":  base_dir / "fusion" / "late_fusion_soft_voting",
+        "Stacking":     base_dir / "fusion" / "late_fusion_stacking",
     }
 
     results = {}
     print(f"\n{'Strategy':<20} {'Brier(raw)':>10} {'ECE(raw)':>9} {'Brier(Platt)':>13} {'ECE(Platt)':>11}")
     print("-" * 70)
 
-    for name, (test_csv, val_csv) in strategies.items():
+    for name, strat_dir in strategy_dirs.items():
+        test_csv = strat_dir / "predictions.csv"
+        val_csv  = strat_dir / "validation_predictions.csv"
         if not test_csv.exists() or not val_csv.exists():
+            print(f"  [skip] {name}")
             continue
-        y_test, p_test = load_pred_csv(test_csv)
-        y_val, p_val   = load_pred_csv(val_csv)
 
-        b_raw = brier_score(y_test, p_test)
-        e_raw = ece(y_test, p_test)
-        p_platt = platt_scale(y_val, p_val, p_test)
-        b_platt = brier_score(y_test, p_platt)
-        e_platt = ece(y_test, p_platt)
+        test_rows = []
+        with open(test_csv, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                test_rows.append({
+                    "fold":   int(row["fold"]),
+                    "y_true": int(row["y_true"]),
+                    "y_prob": float(row["y_prob"]),
+                })
+
+        val_rows = []
+        with open(val_csv, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                val_rows.append({
+                    "fold":   int(row["fold"]),
+                    "y_true": int(row["y_true"]),
+                    "y_prob": float(row["y_prob"]),
+                })
+
+        # Per-fold Platt: fit on inner-val_k, eval on outer-test_k (guaranteed disjoint)
+        y_test_all, p_raw_all, p_platt_all = [], [], []
+
+        for fold in range(CFG.n_folds):
+            val_fold  = [r for r in val_rows  if r["fold"] == fold]
+            test_fold = [r for r in test_rows if r["fold"] == fold]
+            if not val_fold or not test_fold:
+                continue
+
+            y_val = np.array([r["y_true"] for r in val_fold],  dtype=int)
+            p_val = np.array([r["y_prob"] for r in val_fold],  dtype=float)
+            y_te  = np.array([r["y_true"] for r in test_fold], dtype=int)
+            p_te  = np.array([r["y_prob"] for r in test_fold], dtype=float)
+
+            p_te_platt = platt_scale(y_val, p_val, p_te)
+
+            y_test_all.extend(y_te.tolist())
+            p_raw_all.extend(p_te.tolist())
+            p_platt_all.extend(p_te_platt.tolist())
+
+        y_test_all  = np.array(y_test_all,  dtype=int)
+        p_raw_all   = np.array(p_raw_all,   dtype=float)
+        p_platt_all = np.array(p_platt_all, dtype=float)
+
+        b_raw   = brier_score(y_test_all, p_raw_all)
+        e_raw   = ece(y_test_all, p_raw_all)
+        b_platt = brier_score(y_test_all, p_platt_all)
+        e_platt = ece(y_test_all, p_platt_all)
 
         results[name] = {
-            "brier_raw": round(b_raw, 3),
-            "ece_raw": e_raw,
+            "brier_raw":   round(b_raw,   3),
+            "ece_raw":     e_raw,
             "brier_platt": round(b_platt, 3),
-            "ece_platt": e_platt,
+            "ece_platt":   e_platt,
+            "protocol":    "per-fold Platt: fit on inner-val_k, eval on outer-test_k",
         }
         print(f"  {name:<20} {b_raw:>10.3f} {e_raw:>9.3f} {b_platt:>13.3f} {e_platt:>11.3f}")
 
     write_json(out_dir / "table17_calibration.json", results)
     print(f"\nSaved: {out_dir}")
+    print("Protocol: per-fold Platt — inner-val and outer-test are guaranteed disjoint per fold.")
 
 
 if __name__ == "__main__":

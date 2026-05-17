@@ -51,7 +51,7 @@ def tpr_fpr_at_threshold(y_true, y_prob, tau: float):
 
 def find_best_threshold_f1(y_true, y_prob):
     best_f1, best_t = -1.0, 0.5
-    for t in np.arange(0.30, 0.71, 0.01):
+    for t in np.arange(0.01, 1.00, 0.01):
         y_pred = (y_prob >= t).astype(int)
         tp = np.sum((y_pred == 1) & (y_true == 1))
         fp = np.sum((y_pred == 1) & (y_true == 0))
@@ -64,36 +64,64 @@ def find_best_threshold_f1(y_true, y_prob):
 
 def main():
     base_dir = Path(CFG.runs_dir) / CFG.run_name
-    out_dir = base_dir / "prior_correction"
+    out_dir  = base_dir / "prior_correction"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     pi_values = [0.005, 0.01, 0.05]
-    pi_range = np.logspace(-3, -1, 200)
+    pi_range  = np.logspace(-3, -1, 200)
 
-    strategies = {
+    # Tau optimized on validation; TPR/FPR evaluated on test set
+    val_paths = {
         "Text-Only":    base_dir / "text_only" / "validation_predictions.csv",
         "Early Fusion": base_dir / "fusion" / "early_fusion" / "validation_predictions.csv",
         "Score-Max":    base_dir / "fusion" / "late_fusion_score_max" / "validation_predictions.csv",
         "Soft Voting":  base_dir / "fusion" / "late_fusion_soft_voting" / "validation_predictions.csv",
         "Stacking":     base_dir / "fusion" / "late_fusion_stacking" / "validation_predictions.csv",
     }
+    test_dir = base_dir / "independent_test"
+    test_paths = {
+        "Text-Only":    test_dir / "predictions_text_only.csv",
+        "Early Fusion": test_dir / "predictions_early_fusion.csv",
+        "Score-Max":    test_dir / "predictions_score_max.csv",
+        "Soft Voting":  test_dir / "predictions_soft_voting.csv",
+        "Stacking":     test_dir / "predictions_stacking.csv",
+    }
+    cv_test_paths = {
+        "Text-Only":    base_dir / "text_only" / "predictions.csv",
+        "Early Fusion": base_dir / "fusion" / "early_fusion" / "predictions.csv",
+        "Score-Max":    base_dir / "fusion" / "late_fusion_score_max" / "predictions.csv",
+        "Soft Voting":  base_dir / "fusion" / "late_fusion_soft_voting" / "predictions.csv",
+        "Stacking":     base_dir / "fusion" / "late_fusion_stacking" / "predictions.csv",
+    }
 
     colors = {"Text-Only": "black", "Early Fusion": "green",
               "Score-Max": "orange", "Soft Voting": "blue", "Stacking": "red"}
 
     table14_rows = []
-    fig, ax = plt.subplots(figsize=(8, 5))
     results = {}
+    fig, ax = plt.subplots(figsize=(8, 5))
 
-    for name, csv_path in strategies.items():
-        if not csv_path.exists():
+    for name in val_paths:
+        val_csv = val_paths[name]
+        if not val_csv.exists():
             continue
-        y_true, y_prob = load_predictions(csv_path)
-        tau_opt = find_best_threshold_f1(y_true, y_prob)
-        tpr_opt, fpr_opt = tpr_fpr_at_threshold(y_true, y_prob, tau_opt)
+
+        y_val, p_val = load_predictions(val_csv)
+        tau_opt = find_best_threshold_f1(y_val, p_val)
+
+        if test_paths[name].exists():
+            y_tpr_fpr, p_tpr_fpr = load_predictions(test_paths[name])
+            source = "independent test set (N=110)"
+        elif cv_test_paths[name].exists():
+            y_tpr_fpr, p_tpr_fpr = load_predictions(cv_test_paths[name])
+            source = "CV test predictions (fallback)"
+        else:
+            continue
+
+        tpr_opt, fpr_opt = tpr_fpr_at_threshold(y_tpr_fpr, p_tpr_fpr, tau_opt)
 
         row = {"strategy": name, "threshold": round(tau_opt, 2),
-               "tpr": round(tpr_opt, 3), "fpr": round(fpr_opt, 3)}
+               "tpr": round(tpr_opt, 3), "fpr": round(fpr_opt, 3), "source": source}
         for pi in pi_values:
             row[f"prec_pi_{pi}"] = round(prior_corrected_precision(tpr_opt, fpr_opt, pi), 3)
         table14_rows.append(row)

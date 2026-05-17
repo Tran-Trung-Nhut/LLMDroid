@@ -32,18 +32,37 @@ def load_pred_with_id(csv_path: Path):
 
 def main():
     base_dir = Path(CFG.runs_dir) / CFG.run_name
-    out_dir = base_dir / "per_category"
+    out_dir  = base_dir / "per_category"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Load category from test set, not training set
     app_category = {}
-    for rec in read_jsonl(CFG.dataset_path):
+    test_dataset_path = Path(CFG.raw_inference_dataset_path)
+    if not test_dataset_path.exists():
+        test_dataset_path = Path(CFG.inference_dataset_path)
+    if not test_dataset_path.exists():
+        print(f"[error] Test dataset not found. Tried: {test_dataset_path}")
+        return
+    for rec in read_jsonl(str(test_dataset_path)):
         cat = (rec.get("category") or "Other").strip()
         app_category[rec["app_id"]] = cat
 
-    sv_preds = load_pred_with_id(
-        base_dir / "fusion" / "late_fusion_soft_voting" / "predictions.csv"
-    )
-    to_preds = load_pred_with_id(base_dir / "text_only" / "predictions.csv")
+    test_dir = base_dir / "independent_test"
+    sv_csv   = test_dir / "predictions_soft_voting.csv"
+    if not sv_csv.exists():
+        print(f"[error] Run independent_test_eval.py first to generate {sv_csv}")
+        return
+
+    sv_preds = load_pred_with_id(sv_csv)
+
+    # Build text_only predictions from text_prob in soft_voting CSV
+    to_preds = {}
+    with open(sv_csv, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            to_preds[row["app_id"]] = {
+                "y_true": int(row["y_true"]),
+                "y_pred": int(float(row.get("text_prob", row["y_prob"])) >= 0.5),
+            }
 
     cat_groups = {
         "Productivity":  ["Productivity"],
@@ -59,11 +78,11 @@ def main():
         sv_yt, sv_yp, to_yp = [], [], []
         for app_id, cat in app_category.items():
             in_group = (cats is None and cat not in all_cats_covered) or (cats and cat in cats)
-            if not in_group or app_id not in sv_preds or app_id not in to_preds:
+            if not in_group or app_id not in sv_preds:
                 continue
             sv_yt.append(sv_preds[app_id]["y_true"])
             sv_yp.append(sv_preds[app_id]["y_pred"])
-            to_yp.append(to_preds[app_id]["y_pred"])
+            to_yp.append(to_preds.get(app_id, {"y_pred": 0})["y_pred"])
 
         if not sv_yt:
             continue
@@ -74,13 +93,13 @@ def main():
             "n": len(sv_yt),
             "n_pos": int(sv_yt.sum()),
             "f1_soft_voting": f1_sv,
-            "f1_text_only": f1_to,
+            "f1_text_only":   f1_to,
             "delta_f1_vs_text_only": round(f1_sv - f1_to, 2),
         }
 
     write_json(out_dir / "table13_per_category.json", results)
 
-    print("\nTable 13 (Per-Category F1, Soft Voting):")
+    print("\nTable 13 (Per-Category F1, Soft Voting — Independent Test Set):")
     print(f"  {'Category':<16} {'N':>4} {'N+':>4} {'F1(SV)':>8} {'ΔF1':>7}")
     print("  " + "-" * 50)
     for cat, r in results.items():
