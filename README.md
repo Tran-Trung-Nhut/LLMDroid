@@ -74,7 +74,24 @@ data/
 ├── inference_manual.csv        ← Ground truth labels 110 test apps (bắt buộc)
 ├── apps_inference_raw.jsonl    ← Raw metadata 110 test apps (bắt buộc cho test)
 ├── images/                     ← Screenshots (tự download hoặc đã có sẵn)
-└── splits/                     ← 5-fold splits (tự tạo khi chạy pipeline)
+├── splits/                     ← 5-fold splits (tự tạo khi chạy pipeline)
+├── inter_annotator.csv         ← Labels 2 annotators cho 100 apps (Table 1)
+└── code_validation.csv         ← Listing vs LLMAID/AI Discriminator cho 80 apps (Table 2)
+```
+
+**Format `inter_annotator.csv`** (dùng cho Table 1):
+```
+app_id,annotator1,annotator2,final_label
+com.example.app1,1,1,1
+com.example.app2,0,0,0
+com.example.app3,1,0,1
+```
+
+**Format `code_validation.csv`** (dùng cho Table 2):
+```
+app_id,listing_label,llmaid_label,ai_discriminator_label
+com.example.app1,1,1,1
+com.example.app2,0,0,0
 ```
 
 **Format `apps_raw.jsonl`** — mỗi dòng là một JSON:
@@ -175,6 +192,27 @@ python src/steps/statistical_tests.py
 ## Chạy các phân tích bổ sung (sau khi train xong)
 
 > Tất cả scripts này đọc từ `runs/feature_fusion/` — phải train xong trước.
+
+### Inter-annotator agreement — Table 1
+
+> Yêu cầu: `data/inter_annotator.csv` (100 apps, 2 annotators)
+
+```bash
+python src/steps/cohen_kappa_iaa.py
+# Output: runs/cohen_kappa_iaa.txt
+#   κ = 0.834 [0.737, 0.916], percentage agreement = 92.0%
+```
+
+### Code-level label validation — Table 2
+
+> Yêu cầu: `data/code_validation.csv` (80 apps, LLMAID + AI Discriminator labels)
+
+```bash
+python src/steps/cohen_kappa_validation.py
+# Output: runs/cohen_kappa_validation.txt
+#   κ(listing vs LLMAID) = 0.847
+#   κ(listing vs AI Discriminator) = 0.604
+```
 
 ### Image branch ablation — Table 5
 
@@ -430,6 +468,9 @@ runs/feature_fusion/
 │
 ├── robustness/
 │   └── table18_robustness.json        ← Table 18
+│
+├── cohen_kappa_iaa.txt                ← Table 1: κ inter-annotator (N=100)
+├── cohen_kappa_validation.txt         ← Table 2: κ listing vs LLMAID/AI Disc. (N=80)
 │
 └── paper_reported_results/            ← Kết quả từ paper (không cần chạy lại)
     ├── table3_text_ablation.json

@@ -22,7 +22,7 @@ from steps.extract_text_features import encode_texts, compute_keyword_features, 
 
 
 def main():
-    out_dir = Path("data/features_test_trunc50/text")
+    out_dir = Path(CFG.features_test_trunc50_dir) / "text"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows = read_jsonl(CFG.raw_inference_dataset_path)
@@ -46,7 +46,7 @@ def main():
 
     for r in rows:
         app_id    = r["app_id"]
-        desc_trunc = (r.get("description") or "")[:50]
+        desc_trunc = (r.get("description") or "")[:CFG.trunc_desc_chars]
         title      = r.get("title", "")
         text       = f"{title} {desc_trunc}".strip()
 

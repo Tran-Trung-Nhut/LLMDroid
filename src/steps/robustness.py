@@ -83,7 +83,7 @@ def main():
     results["Drop screenshots"] = m
 
     # Condition 3: Truncate description to 50 chars (requires BGE re-encode)
-    trunc_features_path = Path("data/features_test_trunc50/text/features.npz")
+    trunc_features_path = Path(CFG.features_test_trunc50_dir) / "text" / "features.npz"
     trunc_text_probs = None  # keep in scope for condition 4
     if trunc_features_path.exists():
         import joblib

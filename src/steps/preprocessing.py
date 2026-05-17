@@ -137,7 +137,7 @@ def main():
 
             raw_paths = record.get("image_paths", [])
             stats["images_before"] += len(raw_paths)
-            unique_paths = dedup_image_paths(raw_paths, max_dist=4)
+            unique_paths = dedup_image_paths(raw_paths)
             stats["images_after"] += len(unique_paths)
             record["image_paths"] = unique_paths
 

@@ -1,0 +1,5 @@
+app_id,listing_label,llmaid_label,ai_discriminator_label
+com.example.app1,1,1,1
+com.example.app2,0,0,0
+com.example.app3,1,1,0
+com.example.app4,0,0,1

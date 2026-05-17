@@ -67,7 +67,7 @@ def main():
     out_dir  = base_dir / "prior_correction"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pi_values = [0.005, 0.01, 0.05]
+    pi_values = list(CFG.prior_pi_values)
     pi_range  = np.logspace(-3, -1, 200)
 
     # Tau optimized on validation; TPR/FPR evaluated on test set

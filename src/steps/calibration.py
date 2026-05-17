@@ -32,7 +32,9 @@ def brier_score(y_true, y_prob):
     return float(np.mean((y_prob - y_true) ** 2))
 
 
-def ece(y_true, y_prob, n_bins: int = 10):
+def ece(y_true, y_prob, n_bins: int = None):
+    if n_bins is None:
+        n_bins = CFG.ece_n_bins
     bins = np.linspace(0, 1, n_bins + 1)
     total_ece = 0.0
     n = len(y_true)

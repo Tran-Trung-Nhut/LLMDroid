@@ -148,6 +148,24 @@ Score:"""
         "Shopping", "Travel & Local", "Medical", "Music & Audio", "Photography",
     )
 
+    # ── Annotation & statistical tests ──
+    iaa_csv: str = "data/inter_annotator.csv"
+    code_validation_csv: str = "data/code_validation.csv"
+    n_bootstrap: int = 2000
+    disagree_threshold: float = 0.3
+    prior_pi_values: tuple = (0.005, 0.01, 0.05)
+    ece_n_bins: int = 10
+
+    # ── Test-set paths ──
+    features_test_dir: str = "data/features_test"
+    features_test_trunc50_dir: str = "data/features_test_trunc50"
+    trunc_desc_chars: int = 50
+    temporal_d_cut: str = "2025-06-01"
+
+    # ── Latency benchmark ──
+    latency_n_screenshots: int = 4
+    latency_n_runs: int = 3
+
     # ── Output ──
     runs_dir: str = "runs"
     run_name: str = "feature_fusion"

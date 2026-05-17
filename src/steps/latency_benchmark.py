@@ -29,7 +29,9 @@ from config import CFG
 from utils.io import read_jsonl, write_json
 
 
-def time_bge_encoding(records: list, n_runs: int = 3) -> float:
+def time_bge_encoding(records: list, n_runs: int = None) -> float:
+    if n_runs is None:
+        n_runs = CFG.latency_n_runs
     from transformers import AutoTokenizer, AutoModel
     import torch
 
@@ -45,7 +47,7 @@ def time_bge_encoding(records: list, n_runs: int = 3) -> float:
         for _ in range(n_runs):
             t0     = time.perf_counter()
             inputs = tokenizer(texts, return_tensors="pt", padding=True,
-                               truncation=True, max_length=512).to(device)
+                               truncation=True, max_length=CFG.text_max_length).to(device)
             with torch.no_grad():
                 out = model(**inputs)
             _ = out.last_hidden_state[:, 0].cpu().numpy()
@@ -53,7 +55,11 @@ def time_bge_encoding(records: list, n_runs: int = 3) -> float:
     return float(np.mean(times))
 
 
-def time_clip_encoding(records: list, n_screenshots: int = 4, n_runs: int = 3) -> float:
+def time_clip_encoding(records: list, n_screenshots: int = None, n_runs: int = None) -> float:
+    if n_screenshots is None:
+        n_screenshots = CFG.latency_n_screenshots
+    if n_runs is None:
+        n_runs = CFG.latency_n_runs
     from transformers import CLIPProcessor, CLIPModel
     import torch
     from PIL import Image
@@ -79,7 +85,9 @@ def time_clip_encoding(records: list, n_screenshots: int = 4, n_runs: int = 3) -
     return float(np.mean(times)) if times else 0.0
 
 
-def time_ocr(records: list, n_screenshots: int = 4) -> float:
+def time_ocr(records: list, n_screenshots: int = None) -> float:
+    if n_screenshots is None:
+        n_screenshots = CFG.latency_n_screenshots
     import pytesseract
     from PIL import Image
 
@@ -147,11 +155,11 @@ def main():
     print("  Timing BGE encoding...")
     results["bge_encode_s_per_app"] = round(time_bge_encoding(records), 4)
 
-    print("  Timing CLIP encoding (4 screenshots)...")
-    results["clip_encode_s_per_app"] = round(time_clip_encoding(records, n_screenshots=4), 4)
+    print(f"  Timing CLIP encoding ({CFG.latency_n_screenshots} screenshots)...")
+    results["clip_encode_s_per_app"] = round(time_clip_encoding(records), 4)
 
-    print("  Timing OCR (4 screenshots)...")
-    results["ocr_s_per_app"] = round(time_ocr(records, n_screenshots=4), 4)
+    print(f"  Timing OCR ({CFG.latency_n_screenshots} screenshots)...")
+    results["ocr_s_per_app"] = round(time_ocr(records), 4)
 
     print("  Timing LightGBM inference...")
     results.update(time_lgbm_inference(n_apps=110))

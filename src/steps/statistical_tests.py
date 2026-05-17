@@ -54,9 +54,13 @@ def bootstrap_auc(
     y_true: np.ndarray,
     prob_base: np.ndarray,
     prob_cmp: np.ndarray,
-    n_bootstrap: int = 2000,
-    seed: int = 42,
+    n_bootstrap: int = None,
+    seed: int = None,
 ) -> dict:
+    if n_bootstrap is None:
+        n_bootstrap = CFG.n_bootstrap
+    if seed is None:
+        seed = CFG.seed
     rng = np.random.RandomState(seed)
     n = len(y_true)
     diffs = []

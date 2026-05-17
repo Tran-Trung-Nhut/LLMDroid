@@ -46,8 +46,8 @@ def main():
     out_dir  = base_dir / "independent_test"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    test_text_path = Path("data/features_test/text/features.npz")
-    test_img_path  = Path("data/features_test/image/features.npz")
+    test_text_path = Path(CFG.features_test_dir) / "text" / "features.npz"
+    test_img_path  = Path(CFG.features_test_dir) / "image" / "features.npz"
     if not test_text_path.exists():
         print(f"[error] Test features not found at {test_text_path}")
         print("  Extract features for the 110-app test set first.")

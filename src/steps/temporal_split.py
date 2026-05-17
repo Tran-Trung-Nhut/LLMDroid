@@ -29,7 +29,7 @@ from steps.train_evaluate import (
     fit_select_kbest, find_best_threshold_from_arrays,
 )
 
-D_CUT = datetime(2025, 6, 1)
+D_CUT = datetime.strptime(CFG.temporal_d_cut, "%Y-%m-%d")
 
 
 def parse_date(date_str):
@@ -108,7 +108,7 @@ def main():
 
     oof_text = np.zeros(len(train_idx))
     oof_img  = np.zeros(len(train_idx))
-    inner_cv = StratifiedKFold(n_splits=4, shuffle=True, random_state=CFG.seed)
+    inner_cv = StratifiedKFold(n_splits=CFG.stacking_inner_cv_folds, shuffle=True, random_state=CFG.seed)
 
     for in_tr, in_val in inner_cv.split(X_text_tr, y_train):
         _, Xtt_in, Xtv_in, _ = fit_select_kbest(X_text_tr[in_tr], y_train[in_tr],

@@ -38,7 +38,11 @@ def load_fusion_predictions(csv_path: Path):
     return rows
 
 
-def bootstrap_corr(x: np.ndarray, y: np.ndarray, n: int = 2000, seed: int = 42):
+def bootstrap_corr(x: np.ndarray, y: np.ndarray, n: int = None, seed: int = None):
+    if n is None:
+        n = CFG.n_bootstrap
+    if seed is None:
+        seed = CFG.seed
     rng = np.random.RandomState(seed)
     p_boot, s_boot = [], []
     for _ in range(n):

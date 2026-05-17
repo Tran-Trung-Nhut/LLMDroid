@@ -19,8 +19,6 @@ if str(_SCRIPT_DIR.parent) not in sys.path:
 from config import CFG
 from utils.io import write_json
 
-DISAGREE_THRESHOLD = 0.3
-
 
 def load_fusion_pred(csv_path: Path):
     rows = []
@@ -59,7 +57,7 @@ def main():
     sv_app_order = [r["app_id"] for r in sv_rows]
 
     disagree_mask = [
-        abs(r["text_prob"] - r["image_prob"]) > DISAGREE_THRESHOLD
+        abs(r["text_prob"] - r["image_prob"]) > CFG.disagree_threshold
         for r in sv_rows
     ]
     n_disagree = sum(disagree_mask)
