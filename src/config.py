@@ -161,7 +161,7 @@ Score:"""
     features_test_dir: str = "data/features_test"
     features_test_trunc50_dir: str = "data/features_test_trunc50"
     trunc_desc_chars: int = 50
-    temporal_d_cut: str = "2025-06-01"
+    temporal_d_cut: str = "2026-04-30"
 
     # ── Latency benchmark ──
     latency_n_screenshots: int = 4

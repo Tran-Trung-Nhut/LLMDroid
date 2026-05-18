@@ -176,7 +176,7 @@ def main():
 
     write_json(out_dir / "table15_temporal.json", table15)
 
-    print(f"\nTable 15 (Temporal Generalization, D_cut=2025-06-01):")
+    print(f"\nTable 15 (Temporal Generalization, D_cut={CFG.temporal_d_cut}):")
     print(f"  {'Strategy':<16} {'Random F1':>10} {'Temporal F1':>12} {'Δ':>7} {'ROC-AUC(temp)':>14}")
     print("  " + "-" * 65)
     for name, r in table15.items():
