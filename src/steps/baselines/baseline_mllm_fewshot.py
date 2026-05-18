@@ -12,11 +12,11 @@ Requires: OPENAI_API_KEY in environment.
 Output: runs/feature_fusion/independent_test/baseline_mllm_fewshot_gpt4o.json
 """
 import base64
-import csv
 import json
 import os
 import random
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -28,7 +28,7 @@ if str(_SCRIPT_DIR.parent.parent) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR.parent.parent))
 
 from config import CFG
-from utils.io import read_jsonl, write_json
+from utils.io import read_jsonl, write_json, load_label_map
 from utils.metrics import compute_binary_metrics
 
 SYSTEM_PROMPT = """You are an expert app-store reviewer specializing in AI capability detection.
@@ -106,10 +106,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     test_records = read_jsonl(CFG.raw_inference_dataset_path)
-    test_label_map = {}
-    with open(CFG.inference_manual_csv) as f:
-        for r in csv.DictReader(f):
-            test_label_map[r["pkg_name"]] = int(r["label"])
+    test_label_map = load_label_map(CFG.inference_manual_csv)
 
     train_records    = read_jsonl(CFG.dataset_path)
     train_label_map  = {r["app_id"]: r.get("label_binary", r.get("label", -1)) for r in train_records}
@@ -123,7 +120,6 @@ def main():
     sys.path.insert(0, str(Path(__file__).parent))
     from baseline_mllm_zeroshot import kmedoids_select
 
-    import time
     results, y_true_list, y_prob_list, per_app_times = {}, [], [], []
 
     for r in test_records:
@@ -161,7 +157,7 @@ def main():
     latency = float(np.mean(per_app_times)) if per_app_times else 0.0
     m = compute_binary_metrics(np.array(y_true_list), np.array(y_prob_list), threshold=0.5)
     print(f"\nGPT-4o (6-shot): Acc={m['accuracy']:.3f} F1={m['f1_pos']:.3f} AUC={m['roc_auc']:.3f}")
-    print(f"Latency: {latency:.3f} s/app  (paper: ~5.47 s)")
+    print(f"Latency: {latency:.3f} s/app")
     write_json(out_dir / "baseline_mllm_fewshot_gpt4o.json", {
         "metrics": m,
         "latency_s_per_app": round(latency, 4),

@@ -2,6 +2,7 @@
 robustness.py — Table 18: Soft Voting under missing modality conditions.
 """
 import csv
+import json
 import os
 import sys
 from pathlib import Path
@@ -36,6 +37,8 @@ def load_fusion_preds(csv_path: Path):
 def soft_vote(s_text, s_img, alpha=0.5, tau=0.5, img_active=True, text_active=True):
     y_prob = alpha * s_text + (1 - alpha) * s_img
     active_weight = (alpha if text_active else 0.0) + ((1 - alpha) if img_active else 0.0)
+    # Rescale threshold by active weight so the decision boundary stays at tau
+    # on the remaining branch score when one branch is dropped.
     effective_tau = tau * active_weight if active_weight > 0 else float("inf")
     return y_prob, (y_prob >= effective_tau).astype(int)
 
@@ -50,20 +53,18 @@ def compute_metrics(y_true, y_pred):
 
 
 def main():
-    import json
     base_dir = Path(CFG.runs_dir) / CFG.run_name
     out_dir  = base_dir / "robustness"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    test_dir = base_dir / "independent_test"
-    sv_csv   = test_dir / "predictions_soft_voting.csv"
+    sv_csv = base_dir / "independent_test" / "predictions_soft_voting.csv"
     if not sv_csv.exists():
         print(f"[error] Run independent_test_eval.py first to generate {sv_csv}")
         return
 
     rows   = load_fusion_preds(sv_csv)
-    y_true = np.array([r["y_true"]     for r in rows])
-    s_text = np.array([r["text_prob"]  for r in rows])
+    y_true = np.array([r["y_true"]    for r in rows])
+    s_text = np.array([r["text_prob"] for r in rows])
     s_img  = np.array([r["image_prob"] for r in rows])
 
     sv_alpha_path = base_dir / "fusion" / "late_fusion_soft_voting" / "alpha_grid_search.json"
@@ -84,16 +85,14 @@ def main():
     m["delta_f1"] = round(m["f1"] - base_f1, 3)
     results["Drop screenshots"] = m
 
-    # Condition 3: Truncate description to 50 chars (requires BGE re-encode)
     trunc_features_path = Path(CFG.features_test_trunc50_dir) / "text" / "features.npz"
-    trunc_text_probs = None  # keep in scope for condition 4
+    trunc_text_probs = None
     if trunc_features_path.exists():
         import joblib
         import lightgbm as lgb
         d = np.load(trunc_features_path, allow_pickle=True)
         trunc_feats  = np.concatenate([d["sbert"], d["keywords"], d["meta"]], axis=1)
-        trunc_ids    = list(d["app_ids"])
-        trunc_id2idx = {aid: i for i, aid in enumerate(trunc_ids)}
+        trunc_id2idx = {aid: i for i, aid in enumerate(d["app_ids"])}
         test_ids     = [r["app_id"] for r in rows]
         fus_dir      = base_dir / "fusion" / "base_models_saved"
         trunc_text_probs = np.zeros(len(test_ids))
@@ -104,7 +103,7 @@ def main():
                                  else np.zeros(trunc_feats.shape[1]) for aid in test_ids])
             trunc_text_probs += mdl.predict(sel.transform(aligned))
         trunc_text_probs /= CFG.n_folds
-        _, y_pred_trunc = soft_vote(trunc_text_probs, s_img, alpha, img_active=True)
+        _, y_pred_trunc = soft_vote(trunc_text_probs, s_img, alpha)
         m_trunc = compute_metrics(y_true, y_pred_trunc)
         m_trunc["delta_f1"] = round(m_trunc["f1"] - base_f1, 3)
         results["Truncate description to 50 chars"] = m_trunc
@@ -114,7 +113,6 @@ def main():
             "note": "requires re-encoding — run extract_text_features_trunc50.py first"
         }
 
-    # Condition 4: Drop screenshots AND truncate text = trunc_text_probs + s_img=0
     if trunc_text_probs is not None:
         _, y_pred_both = soft_vote(trunc_text_probs, np.zeros_like(s_img), alpha, img_active=False)
         m_both = compute_metrics(y_true, y_pred_both)
@@ -128,7 +126,7 @@ def main():
 
     write_json(out_dir / "table18_robustness.json", results)
 
-    print(f"\nTable 18 (Robustness — Soft Voting, N=110 independent test set, alpha={alpha}):")
+    print(f"\nTable 18 (Robustness — Soft Voting, N=110, alpha={alpha}):")
     print(f"  {'Condition':<40} {'Recall':>7} {'Precision':>10} {'F1':>6} {'ΔF1':>7}")
     print("  " + "-" * 75)
     for cond, m in results.items():

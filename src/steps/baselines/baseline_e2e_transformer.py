@@ -8,8 +8,10 @@ Architecture:
   AdamW (lr=1e-4, wd=1e-2), batch=16, max_epochs=50, early-stopping patience=10 on val F1
   5-fold CV (same splits as main pipeline)
 """
+import csv
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -24,7 +26,7 @@ if str(_SCRIPT_DIR.parent.parent) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR.parent.parent))
 
 from config import CFG
-from utils.io import write_json
+from utils.io import write_json, load_label_map
 from utils.metrics import compute_binary_metrics
 from steps.train_evaluate import load_features, load_split
 
@@ -131,8 +133,17 @@ def main():
     imd         = np.load(test_img_path,  allow_pickle=True)
     X_text_test = td["sbert"]
     X_img_test  = imd["clip_mean"]
-    y_test      = td["labels"].astype(int)
+    test_ids    = list(td["app_ids"])
 
+    label_map = load_label_map(CFG.inference_manual_csv)
+    y_test = np.array([label_map.get(aid, -1) for aid in test_ids], dtype=int)
+
+    valid = y_test >= 0
+    X_text_test = X_text_test[valid]
+    X_img_test  = X_img_test[valid]
+    y_test      = y_test[valid]
+
+    fold_times = []
     test_probs = np.zeros(len(y_test))
 
     for fold in range(CFG.n_folds):
@@ -148,23 +159,28 @@ def main():
         val_rel = rng.choice(len(train_idx), n_val, replace=False)
         tr_rel  = np.setdiff1d(np.arange(len(train_idx)), val_rel)
 
+        t0 = time.perf_counter()
         preds = train_one_fold(
             X_text_tr[tr_rel], X_img_tr[tr_rel], y_tr[tr_rel],
             X_text_tr[val_rel], X_img_tr[val_rel], y_tr[val_rel],
             X_text_test, X_img_test,
             CFG.seed, fold,
         )
+        fold_times.append(time.perf_counter() - t0)
         test_probs += preds
         print(f"  Fold {fold}: trained, predicting on N=110 test set...")
 
     test_probs /= CFG.n_folds
+    latency_s_per_app = round(float(np.mean(fold_times)) / len(y_test), 4)
+
     m = compute_binary_metrics(y_test, test_probs, threshold=0.5)
     print(f"\nE2E Transformer (5-fold ensemble → N=110 independent test):")
     print(f"  Acc={m['accuracy']:.3f}  F1={m['f1_pos']:.3f}  AUC={m['roc_auc']:.3f}")
-    print(f"  (Paper Table 12 reference: F1=0.682, AUC=0.853)")
+    print(f"  Latency: {latency_s_per_app:.4f} s/app")
 
     write_json(out_dir / "baseline_e2e_transformer.json", {
         "metrics": m,
+        "latency_s_per_app": latency_s_per_app,
         "protocol": "5-fold ensemble on independent test set (N=110)",
         "architecture": "BGE(1024) + CLIP_mean(768) -> Linear(512) -> 2xTransformerEncoder -> binary head",
     })

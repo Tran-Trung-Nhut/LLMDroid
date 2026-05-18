@@ -1,8 +1,7 @@
 """
 temporal_split.py — Table 15: Temporal generalization.
-
-D_cut = 2025-06-01. Train on apps <= D_cut, test on apps > D_cut.
 """
+import json
 import os
 import sys
 from pathlib import Path
@@ -35,13 +34,10 @@ D_CUT = datetime.strptime(CFG.temporal_d_cut, "%Y-%m-%d")
 def parse_date(date_str):
     if not date_str:
         return None
-    # Unix timestamp (integer)
     try:
-        ts = int(date_str)
-        return datetime.fromtimestamp(ts)
+        return datetime.fromtimestamp(int(date_str))
     except (ValueError, TypeError, OSError):
         pass
-    # ISO string
     try:
         return datetime.strptime(str(date_str)[:10], "%Y-%m-%d")
     except ValueError:
@@ -132,12 +128,11 @@ def main():
     meta_clf.fit(scaler.fit_transform(np.column_stack([oof_text, oof_img])), y_train)
     p_stack = meta_clf.predict_proba(scaler.transform(np.column_stack([p_text, p_img])))[:, 1]
 
-    import json as _json
     sv_alpha_path = base_dir / "fusion" / "late_fusion_soft_voting" / "alpha_grid_search.json"
     sv_alpha = 0.5
     if sv_alpha_path.exists():
         with open(sv_alpha_path) as f:
-            sv_alpha = _json.load(f).get("mean_alpha", 0.5)
+            sv_alpha = json.load(f).get("mean_alpha", 0.5)
 
     for strat_name, y_prob in [
         ("Score-Max",   np.maximum(p_text, p_img)),

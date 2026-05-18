@@ -7,9 +7,9 @@ Requires: OPENAI_API_KEY in environment.
 Output: runs/feature_fusion/independent_test/baseline_mllm_zeroshot_gpt4omini.json
 """
 import base64
-import csv
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +21,7 @@ if str(_SCRIPT_DIR.parent.parent) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR.parent.parent))
 
 from config import CFG
-from utils.io import read_jsonl, write_json
+from utils.io import read_jsonl, write_json, load_label_map
 from utils.metrics import compute_binary_metrics
 
 PROMPT = """You are an app-store reviewer. Decide whether the following Android app integrates a Large Language Model (LLM). An app integrates an LLM if it explicitly uses an LLM API, advertises generative text functionality (chatbot, free-form text generation, prompt-based Q&A), or names a specific LLM (ChatGPT, Claude, Gemini, etc.).
@@ -128,11 +128,8 @@ def main():
     out_dir = Path(CFG.runs_dir) / CFG.run_name / "independent_test"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = read_jsonl(CFG.raw_inference_dataset_path)
-    labels = {}
-    with open(CFG.inference_manual_csv) as f:
-        for r in csv.DictReader(f):
-            labels[r["pkg_name"]] = int(r["label"])
+    rows   = read_jsonl(CFG.raw_inference_dataset_path)
+    labels = load_label_map(CFG.inference_manual_csv)
 
     openai_key = os.environ.get("OPENAI_API_KEY")
     google_key = os.environ.get("GOOGLE_API_KEY")
@@ -151,7 +148,6 @@ def main():
         print("[error] Set OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables.")
         return
 
-    import time
     for provider_name, call_fn in providers.items():
         results, y_true_list, y_prob_list, per_app_times = {}, [], [], []
         for r in rows:

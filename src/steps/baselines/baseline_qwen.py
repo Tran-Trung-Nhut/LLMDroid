@@ -5,7 +5,6 @@ Paper Section 4.2, Table 12, Row 1.
 Protocol: prompt model with title + description, average 3 samples at temperature=0.3.
 Output: runs/feature_fusion/independent_test/baseline_qwen.json
 """
-import csv
 import os
 import sys
 import time
@@ -20,7 +19,7 @@ if str(_SCRIPT_DIR.parent.parent) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR.parent.parent))
 
 from config import CFG
-from utils.io import read_jsonl, write_json
+from utils.io import read_jsonl, write_json, load_label_map
 from utils.metrics import compute_binary_metrics
 
 PROMPT_TEMPLATE = """You are an app-store reviewer. Decide whether the following app integrates a Large Language Model (LLM). An app integrates an LLM if it explicitly uses an LLM API, advertises generative text functionality (e.g., chatbot, free-form text generation, prompt-based Q&A), or names a specific LLM (e.g., ChatGPT, Claude, Gemini). Reply with a single floating-point probability in [0, 1] that the app integrates an LLM.
@@ -38,11 +37,8 @@ def main():
     out_dir = Path(CFG.runs_dir) / CFG.run_name / "independent_test"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = read_jsonl(CFG.raw_inference_dataset_path)
-    labels = {}
-    with open(CFG.inference_manual_csv) as f:
-        for r in csv.DictReader(f):
-            labels[r["pkg_name"]] = int(r["label"])
+    rows   = read_jsonl(CFG.raw_inference_dataset_path)
+    labels = load_label_map(CFG.inference_manual_csv)
 
     print("Loading Qwen2.5-7B-Instruct...")
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct", trust_remote_code=True)
@@ -87,7 +83,7 @@ def main():
     latency_s_per_app = float(np.mean(per_app_times)) if per_app_times else 0.0
     m = compute_binary_metrics(np.array(y_true_list), np.array(y_prob_list), threshold=0.5)
     print(f"Qwen2.5-7B (desc only): Acc={m['accuracy']:.3f} F1={m['f1_pos']:.3f} AUC={m['roc_auc']:.3f}")
-    print(f"Latency: {latency_s_per_app:.3f} s/app  (paper: ~0.81 s)")
+    print(f"Latency: {latency_s_per_app:.3f} s/app")
     write_json(out_dir / "baseline_qwen.json", {
         "metrics": m,
         "latency_s_per_app": round(latency_s_per_app, 4),

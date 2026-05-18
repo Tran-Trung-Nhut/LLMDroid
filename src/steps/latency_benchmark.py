@@ -12,6 +12,7 @@ Components measured:
   5. Fusion (score-max)
   6. Total end-to-end
 """
+import json
 import os
 import sys
 import time
@@ -174,8 +175,6 @@ def main():
         4,
     )
 
-    # Collect baseline latencies from their output JSONs (written during baseline runs)
-    import json as _json
     test_dir = Path(CFG.runs_dir) / CFG.run_name / "independent_test"
     baseline_latency_files = {
         "Qwen2.5-7B (desc. only)":         test_dir / "baseline_qwen.json",
@@ -187,7 +186,7 @@ def main():
     for name, path in baseline_latency_files.items():
         if path.exists():
             with open(path) as f:
-                d = _json.load(f)
+                d = json.load(f)
             if "latency_s_per_app" in d:
                 baseline_latencies[name] = d["latency_s_per_app"]
 
@@ -202,7 +201,7 @@ def main():
     print(f"  LightGBM (image): {results['lgbm_image_s_per_app']:.4f} s/app")
     print(f"  Fusion:           {results['fusion_s_per_app']:.4f} s/app")
     print(f"  {'─' * 33}")
-    print(f"  TOTAL:            {results['total_s_per_app']:.3f} s/app  (paper: ~0.21 s)")
+    print(f"  TOTAL:            {results['total_s_per_app']:.3f} s/app")
 
     if baseline_latencies:
         print("\nTable 16 — Baselines:")
