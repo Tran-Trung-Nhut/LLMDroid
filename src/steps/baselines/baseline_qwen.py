@@ -8,6 +8,7 @@ Output: runs/feature_fusion/independent_test/baseline_qwen.json
 import csv
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -52,6 +53,7 @@ def main():
     model.eval()
 
     results, y_true_list, y_prob_list = {}, [], []
+    per_app_times = []
     n_samples = 3
 
     for r in rows:
@@ -64,6 +66,7 @@ def main():
             description=(r.get("description") or "")[:1500],
         )
         scores = []
+        t0 = time.perf_counter()
         for _ in range(n_samples):
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
             with torch.no_grad():
@@ -75,14 +78,21 @@ def main():
             except (ValueError, IndexError):
                 score = 0.5
             scores.append(score)
+        per_app_times.append(time.perf_counter() - t0)
         y_prob = float(np.mean(scores))
         results[app_id] = {"y_true": y_true, "y_prob": y_prob}
         y_true_list.append(y_true)
         y_prob_list.append(y_prob)
 
+    latency_s_per_app = float(np.mean(per_app_times)) if per_app_times else 0.0
     m = compute_binary_metrics(np.array(y_true_list), np.array(y_prob_list), threshold=0.5)
     print(f"Qwen2.5-7B (desc only): Acc={m['accuracy']:.3f} F1={m['f1_pos']:.3f} AUC={m['roc_auc']:.3f}")
-    write_json(out_dir / "baseline_qwen.json", {"metrics": m, "predictions": results})
+    print(f"Latency: {latency_s_per_app:.3f} s/app  (paper: ~0.81 s)")
+    write_json(out_dir / "baseline_qwen.json", {
+        "metrics": m,
+        "latency_s_per_app": round(latency_s_per_app, 4),
+        "predictions": results,
+    })
 
 
 if __name__ == "__main__":

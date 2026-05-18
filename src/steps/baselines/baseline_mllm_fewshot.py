@@ -123,7 +123,8 @@ def main():
     sys.path.insert(0, str(Path(__file__).parent))
     from baseline_mllm_zeroshot import kmedoids_select
 
-    results, y_true_list, y_prob_list = {}, [], []
+    import time
+    results, y_true_list, y_prob_list, per_app_times = {}, [], [], []
 
     for r in test_records:
         app_id = r["app_id"]
@@ -137,6 +138,7 @@ def main():
                                      n_per_class=3, seed=hash(app_id) % 10000)
         messages  = build_few_shot_messages(exemplars, r, train_label_map,
                                             kmedoids_select, max_images=4)
+        t0 = time.perf_counter()
         try:
             resp  = client.chat.completions.create(
                 model="gpt-4o",
@@ -149,15 +151,22 @@ def main():
         except Exception as e:
             print(f"  [warn] {app_id}: {e}")
             y_prob = 0.5
+        per_app_times.append(time.perf_counter() - t0)
 
         results[app_id] = {"y_true": y_true, "y_prob": y_prob}
         y_true_list.append(y_true)
         y_prob_list.append(y_prob)
         print(f"  {app_id}: {y_prob:.3f} (true={y_true})")
 
+    latency = float(np.mean(per_app_times)) if per_app_times else 0.0
     m = compute_binary_metrics(np.array(y_true_list), np.array(y_prob_list), threshold=0.5)
     print(f"\nGPT-4o (6-shot): Acc={m['accuracy']:.3f} F1={m['f1_pos']:.3f} AUC={m['roc_auc']:.3f}")
-    write_json(out_dir / "baseline_mllm_fewshot_gpt4o.json", {"metrics": m, "predictions": results})
+    print(f"Latency: {latency:.3f} s/app  (paper: ~5.47 s)")
+    write_json(out_dir / "baseline_mllm_fewshot_gpt4o.json", {
+        "metrics": m,
+        "latency_s_per_app": round(latency, 4),
+        "predictions": results,
+    })
 
 
 if __name__ == "__main__":

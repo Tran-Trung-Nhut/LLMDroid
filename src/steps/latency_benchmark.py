@@ -174,9 +174,27 @@ def main():
         4,
     )
 
+    # Collect baseline latencies from their output JSONs (written during baseline runs)
+    import json as _json
+    test_dir = Path(CFG.runs_dir) / CFG.run_name / "independent_test"
+    baseline_latency_files = {
+        "Qwen2.5-7B (desc. only)":         test_dir / "baseline_qwen.json",
+        "GPT-4o-mini / Gemini (zero-shot)": test_dir / "baseline_mllm_zeroshot_openai.json",
+        "GPT-4o (6-shot)":                  test_dir / "baseline_mllm_fewshot_gpt4o.json",
+        "E2E transformer":                  test_dir / "baseline_e2e_transformer.json",
+    }
+    baseline_latencies = {}
+    for name, path in baseline_latency_files.items():
+        if path.exists():
+            with open(path) as f:
+                d = _json.load(f)
+            if "latency_s_per_app" in d:
+                baseline_latencies[name] = d["latency_s_per_app"]
+
+    results["baseline_latencies"] = baseline_latencies
     write_json(out_dir / "table16_latency.json", results)
 
-    print("\nTable 16 (Inference Latency — LLMDroid components):")
+    print("\nTable 16 — LLMDroid components:")
     print(f"  BGE encode:       {results['bge_encode_s_per_app']:.3f} s/app")
     print(f"  CLIP encode (4):  {results['clip_encode_s_per_app']:.3f} s/app")
     print(f"  OCR (4 screens):  {results['ocr_s_per_app']:.3f} s/app")
@@ -185,6 +203,14 @@ def main():
     print(f"  Fusion:           {results['fusion_s_per_app']:.4f} s/app")
     print(f"  {'─' * 33}")
     print(f"  TOTAL:            {results['total_s_per_app']:.3f} s/app  (paper: ~0.21 s)")
+
+    if baseline_latencies:
+        print("\nTable 16 — Baselines:")
+        for name, lat in baseline_latencies.items():
+            print(f"  {name:<35} {lat:.3f} s/app")
+    else:
+        print("\n[info] No baseline latencies found. Run baseline scripts first to populate.")
+
     print(f"\nSaved: {out_dir}")
 
 

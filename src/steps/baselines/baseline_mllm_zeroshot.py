@@ -151,8 +151,9 @@ def main():
         print("[error] Set OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables.")
         return
 
+    import time
     for provider_name, call_fn in providers.items():
-        results, y_true_list, y_prob_list = {}, [], []
+        results, y_true_list, y_prob_list, per_app_times = {}, [], [], []
         for r in rows:
             app_id = r["app_id"]
             y_true = labels.get(app_id, -1)
@@ -164,15 +165,23 @@ def main():
                 title=r.get("title", ""),
                 description=(r.get("description") or "")[:1500],
             )
+            t0 = time.perf_counter()
             y_prob = call_fn(prompt, selected)
+            per_app_times.append(time.perf_counter() - t0)
             results[app_id] = {"y_true": y_true, "y_prob": y_prob}
             y_true_list.append(y_true)
             y_prob_list.append(y_prob)
             print(f"  [{provider_name}] {app_id}: {y_prob:.3f} (true={y_true})")
 
+        latency = float(np.mean(per_app_times)) if per_app_times else 0.0
         m = compute_binary_metrics(np.array(y_true_list), np.array(y_prob_list), threshold=0.5)
         print(f"\n{provider_name} (zero-shot): Acc={m['accuracy']:.3f} F1={m['f1_pos']:.3f} AUC={m['roc_auc']:.3f}")
-        write_json(out_dir / f"baseline_mllm_zeroshot_{provider_name}.json", {"metrics": m, "predictions": results})
+        print(f"Latency: {latency:.3f} s/app")
+        write_json(out_dir / f"baseline_mllm_zeroshot_{provider_name}.json", {
+            "metrics": m,
+            "latency_s_per_app": round(latency, 4),
+            "predictions": results,
+        })
 
     print("\nDone. Report better of the two providers on validation F1 in Table 12.")
 
