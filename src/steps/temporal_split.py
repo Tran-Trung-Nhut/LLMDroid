@@ -55,7 +55,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     records = read_jsonl(CFG.dataset_path)
-    app_date = {r["app_id"]: parse_date(r.get("release_date")) for r in records}
+    app_date = {r["app_id"]: parse_date(r.get("last_updated") or r.get("updated")) for r in records}
 
     data = load_features()
     app_ids = data["app_ids"]
