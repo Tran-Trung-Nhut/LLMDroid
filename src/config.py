@@ -171,7 +171,7 @@ Score:"""
     run_name: str = "feature_fusion"
 
     # ── Inference ──
-    inference_features_dir: str = "data/inference_features"
+    inference_features_dir: str = "data/features_test"
     inference_output_dir: str = "inference_results"
     inference_default_threshold: float = 0.5
 

@@ -300,6 +300,7 @@ def cleanup_inference_images(dataset_path: str, images_root: str) -> None:
 
 def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, output_dir: Path) -> None:
     output_dir_abs = output_dir.resolve()
+    features_test_abs = (_PROJECT_ROOT / Path(CFG.features_test_dir)).resolve()
 
     artifact_paths = [
         Path(preprocessed_path),
@@ -310,13 +311,13 @@ def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, outpu
 
     removed_files = 0
     removed_dirs = 0
-    skipped_output_dir = 0
+    skipped = 0
 
     for artifact in artifact_paths:
         artifact_abs = artifact.resolve() if artifact.is_absolute() else (_PROJECT_ROOT / artifact).resolve()
 
-        if artifact_abs == output_dir_abs:
-            skipped_output_dir += 1
+        if artifact_abs == output_dir_abs or artifact_abs == features_test_abs:
+            skipped += 1
             continue
 
         if artifact_abs.exists() and artifact_abs.is_file():
@@ -329,8 +330,8 @@ def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, outpu
     print_section("ARTIFACT CLEANUP")
     print(f"Removed files: {removed_files}")
     print(f"Removed directories: {removed_dirs}")
-    if skipped_output_dir:
-        print(f"Skipped output directory: {output_dir_abs}")
+    if skipped:
+        print(f"Skipped (output/features_test): {skipped}")
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
