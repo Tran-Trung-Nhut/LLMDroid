@@ -39,7 +39,7 @@ def main():
 
     rows = read_jsonl(CFG.raw_inference_dataset_path)
     labels = {}
-    with open("data/inference_manual.csv") as f:
+    with open(CFG.inference_manual_csv) as f:
         for r in csv.DictReader(f):
             labels[r["pkg_name"]] = int(r["label"])
 

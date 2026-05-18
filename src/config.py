@@ -157,6 +157,7 @@ Score:"""
     ece_n_bins: int = 10
 
     # ── Test-set paths ──
+    inference_manual_csv: str = "data/inference_manual.csv"
     features_test_dir: str = "data/features_test"
     features_test_trunc50_dir: str = "data/features_test_trunc50"
     trunc_desc_chars: int = 50

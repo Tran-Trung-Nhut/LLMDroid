@@ -114,10 +114,22 @@ def main():
             alpha = json.load(f).get("mean_alpha", 0.5)
     soft_voting_probs = alpha * text_probs + (1.0 - alpha) * img_probs
 
-    y_true = test_labels.astype(int)
-    n_pos  = int(y_true.sum())
-    n_neg  = len(y_true) - n_pos
-    tau    = 0.5
+    # Load ground-truth labels from inference_manual.csv (overrides -1 placeholders in NPZ)
+    label_csv = Path(CFG.inference_manual_csv)
+    if label_csv.exists():
+        import csv as _csv
+        label_map = {}
+        with open(label_csv) as f:
+            for row in _csv.DictReader(f):
+                label_map[row["pkg_name"]] = int(row["label"])
+        y_true = np.array([label_map.get(aid, int(test_labels[i])) for i, aid in enumerate(test_ids)], dtype=int)
+    else:
+        print(f"[warn] {label_csv} not found — using labels from NPZ (may be -1 placeholders)")
+        y_true = test_labels.astype(int)
+
+    n_pos  = int((y_true == 1).sum())
+    n_neg  = int((y_true == 0).sum())
+    tau    = CFG.classification_threshold
 
     strategies = {
         "Text-Only":    text_probs,

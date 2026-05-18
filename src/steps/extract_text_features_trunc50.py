@@ -28,7 +28,7 @@ def main():
     rows = read_jsonl(CFG.raw_inference_dataset_path)
 
     label_map = {}
-    label_csv = Path("data/inference_manual.csv")
+    label_csv = Path(CFG.inference_manual_csv)
     if label_csv.exists():
         with open(label_csv) as f:
             for r in csv.DictReader(f):
