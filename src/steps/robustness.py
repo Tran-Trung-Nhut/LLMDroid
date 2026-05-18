@@ -33,9 +33,11 @@ def load_fusion_preds(csv_path: Path):
     return rows
 
 
-def soft_vote(s_text, s_img, alpha=0.5, tau=0.5):
+def soft_vote(s_text, s_img, alpha=0.5, tau=0.5, img_active=True, text_active=True):
     y_prob = alpha * s_text + (1 - alpha) * s_img
-    return y_prob, (y_prob >= tau).astype(int)
+    active_weight = (alpha if text_active else 0.0) + ((1 - alpha) if img_active else 0.0)
+    effective_tau = tau * active_weight if active_weight > 0 else float("inf")
+    return y_prob, (y_prob >= effective_tau).astype(int)
 
 
 def compute_metrics(y_true, y_pred):
@@ -77,7 +79,7 @@ def main():
     results["Full listing (baseline)"]["delta_f1"] = 0.0
     base_f1 = results["Full listing (baseline)"]["f1"]
 
-    _, y_pred_no_img = soft_vote(s_text, np.zeros_like(s_img), alpha)
+    _, y_pred_no_img = soft_vote(s_text, np.zeros_like(s_img), alpha, img_active=False)
     m = compute_metrics(y_true, y_pred_no_img)
     m["delta_f1"] = round(m["f1"] - base_f1, 3)
     results["Drop screenshots"] = m
@@ -102,7 +104,7 @@ def main():
                                  else np.zeros(trunc_feats.shape[1]) for aid in test_ids])
             trunc_text_probs += mdl.predict(sel.transform(aligned))
         trunc_text_probs /= CFG.n_folds
-        _, y_pred_trunc = soft_vote(trunc_text_probs, s_img, alpha)
+        _, y_pred_trunc = soft_vote(trunc_text_probs, s_img, alpha, img_active=True)
         m_trunc = compute_metrics(y_true, y_pred_trunc)
         m_trunc["delta_f1"] = round(m_trunc["f1"] - base_f1, 3)
         results["Truncate description to 50 chars"] = m_trunc
@@ -114,10 +116,11 @@ def main():
 
     # Condition 4: Drop screenshots AND truncate text = trunc_text_probs + s_img=0
     if trunc_text_probs is not None:
-        _, y_pred_both = soft_vote(trunc_text_probs, np.zeros_like(s_img), alpha)
+        _, y_pred_both = soft_vote(trunc_text_probs, np.zeros_like(s_img), alpha, img_active=False)
         m_both = compute_metrics(y_true, y_pred_both)
     else:
-        _, y_pred_both = soft_vote(np.zeros_like(s_text), np.zeros_like(s_img), alpha)
+        _, y_pred_both = soft_vote(np.zeros_like(s_text), np.zeros_like(s_img), alpha,
+                                   text_active=False, img_active=False)
         m_both = compute_metrics(y_true, y_pred_both)
         m_both["note"] = "Approximated with s_text=0 — needs extract_text_features_trunc50.py"
     m_both["delta_f1"] = round(m_both["f1"] - base_f1, 3)
