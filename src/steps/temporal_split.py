@@ -25,7 +25,7 @@ from utils.seed import set_seed
 from utils.metrics import compute_binary_metrics
 from steps.train_evaluate import (
     load_features, train_lgbm, predict_lgbm,
-    fit_select_kbest, find_best_threshold_from_arrays,
+    fit_select_kbest,
 )
 
 D_CUT = datetime.strptime(CFG.temporal_d_cut, "%Y-%m-%d")
@@ -154,7 +154,7 @@ def main():
     for name, path in cv_sources.items():
         if path.exists():
             with open(path) as f:
-                agg = _json.load(f)
+                agg = json.load(f)
             random_f1[name] = round(agg.get("f1_pos_mean", 0.0), 3)
 
     table15 = {}
