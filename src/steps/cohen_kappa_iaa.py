@@ -24,13 +24,10 @@ from config import CFG
 
 def bootstrap_kappa_ci(labels1: np.ndarray, labels2: np.ndarray):
     rng = np.random.default_rng(CFG.seed)
-    kappas = [
-        cohen_kappa_score(
-            labels1[rng.choice(len(labels1), size=len(labels1), replace=True)],
-            labels2[rng.choice(len(labels1), size=len(labels1), replace=True)],
-        )
-        for _ in range(CFG.n_bootstrap)
-    ]
+    kappas = []
+    for _ in range(CFG.n_bootstrap):
+        idx = rng.choice(len(labels1), size=len(labels1), replace=True)
+        kappas.append(cohen_kappa_score(labels1[idx], labels2[idx]))
     lo, hi = np.percentile(kappas, [2.5, 97.5])
     return lo, hi
 
@@ -69,7 +66,7 @@ def main():
     print(f"{'Metric':<30} {'Value'}")
     print("-" * 55)
     print(f"{'Percentage agreement':<30} {pct_agree:.1f}%")
-    print(f"{'Cohen\'s κ':<30} {kappa:.3f} [{ci_lo:.3f}, {ci_hi:.3f}]")
+    print(f"{'Cohen kappa':<30} {kappa:.3f} [{ci_lo:.3f}, {ci_hi:.3f}]")
     print(f"{'Disagreement rate':<30} {disagreements}/{n_apps}")
     if resolved_pos is not None:
         print(f"{'  resolved as positive':<30} {resolved_pos}")
@@ -88,7 +85,7 @@ def main():
         if resolved_pos is not None:
             f.write(f"resolved_positive={resolved_pos}\n")
             f.write(f"resolved_negative={resolved_neg}\n")
-    print(f"\nSaved → {out_path}")
+    print(f"\nSaved: {out_path}")
 
 
 if __name__ == "__main__":

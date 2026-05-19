@@ -44,7 +44,7 @@ def _print_block(df: pd.DataFrame, r: dict, col: str):
     print(f"    {'Listing positive':<25} {pos_pos:>8}  {pos_neg:>8}")
     print(f"    {'Listing negative':<25} {neg_pos:>8}  {neg_neg:>8}")
     print(f"    {'Agreement':<25} {r['pct']:>7.1f}%")
-    print(f"    {'Cohen\'s κ':<25} {r['kappa']:>8.3f}")
+    print(f"    {'Cohen kappa':<25} {r['kappa']:>8.3f}")
 
 
 def main():
@@ -83,7 +83,7 @@ def main():
     if len(results) > 1:
         print(f"  {results[1]['pct']:>9.1f}%", end="")
     print()
-    print(f"  {'Cohen\'s κ':<30} {results[0]['kappa']:>10.3f}", end="")
+    print(f"  {'Cohen kappa':<30} {results[0]['kappa']:>10.3f}", end="")
     if len(results) > 1:
         print(f"  {results[1]['kappa']:>10.3f}", end="")
     print()
@@ -97,7 +97,7 @@ def main():
             prefix = r["name"].lower().replace(" ", "_")
             f.write(f"{prefix}_kappa={r['kappa']:.3f}\n")
             f.write(f"{prefix}_pct_agreement={r['pct']:.1f}\n")
-    print(f"\nSaved → {out_path}")
+    print(f"\nSaved: {out_path}")
 
 
 if __name__ == "__main__":
