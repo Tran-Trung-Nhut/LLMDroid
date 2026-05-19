@@ -89,15 +89,24 @@ def call_openai(client, prompt: str, image_paths: list, model: str = "gpt-4o-min
     for p in image_paths:
         content.append({"type": "image_url",
                         "image_url": {"url": f"data:image/png;base64,{image_to_b64(p)}"}})
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": content}],
-        max_tokens=10, temperature=0.0,
-    )
-    try:
-        return max(0.0, min(1.0, float(resp.choices[0].message.content.strip().split()[0])))
-    except Exception:
-        return 0.5
+    for attempt in range(6):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": content}],
+                max_tokens=10, temperature=0.0,
+            )
+            try:
+                return max(0.0, min(1.0, float(resp.choices[0].message.content.strip().split()[0])))
+            except Exception:
+                return 0.5
+        except Exception as e:
+            if ("429" in str(e) or "rate_limit" in str(e).lower()) and attempt < 5:
+                wait = 5.0 * (2 ** attempt)
+                print(f"    [rate-limit] retry {attempt + 1}/5 in {wait:.0f}s...")
+                time.sleep(wait)
+            else:
+                raise
 
 
 def main():

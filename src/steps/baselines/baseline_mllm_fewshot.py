@@ -135,18 +135,25 @@ def main():
         messages  = build_few_shot_messages(exemplars, r, train_label_map,
                                             kmedoids_select, max_images=4)
         t0 = time.perf_counter()
-        try:
-            resp  = client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                max_tokens=10,
-                temperature=0.0,
-            )
-            text  = resp.choices[0].message.content.strip().split()[0].rstrip(".,:") if resp.choices else "0.5"
-            y_prob = max(0.0, min(1.0, float(text)))
-        except Exception as e:
-            print(f"  [warn] {app_id}: {e}")
-            y_prob = 0.5
+        y_prob = 0.5
+        for attempt in range(6):
+            try:
+                resp = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=messages,
+                    max_tokens=10,
+                    temperature=0.0,
+                )
+                text   = resp.choices[0].message.content.strip().split()[0].rstrip(".,:") if resp.choices else "0.5"
+                y_prob = max(0.0, min(1.0, float(text)))
+                break
+            except Exception as e:
+                if ("429" in str(e) or "rate_limit" in str(e).lower()) and attempt < 5:
+                    wait = 5.0 * (2 ** attempt)
+                    print(f"  [rate-limit] {app_id}: retry {attempt + 1}/5 in {wait:.0f}s...")
+                    time.sleep(wait)
+                else:
+                    raise
         per_app_times.append(time.perf_counter() - t0)
 
         results[app_id] = {"y_true": y_true, "y_prob": y_prob}
