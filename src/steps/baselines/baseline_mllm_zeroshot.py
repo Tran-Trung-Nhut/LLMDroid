@@ -100,30 +100,6 @@ def call_openai(client, prompt: str, image_paths: list, model: str = "gpt-4o-min
         return 0.5
 
 
-def call_gemini(_, prompt: str, image_paths: list) -> float:
-    import google.generativeai as genai
-    from PIL import Image as PILImage
-
-    images = []
-    for p in image_paths:
-        try:
-            images.append(PILImage.open(p))
-        except Exception:
-            continue
-
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    contents = [prompt] + images
-    try:
-        resp = model.generate_content(
-            contents,
-            generation_config={"temperature": 0.0, "max_output_tokens": 10},
-        )
-        text = resp.text.strip().split()[0].rstrip(".,:") if resp.text else "0.5"
-        return max(0.0, min(1.0, float(text)))
-    except Exception:
-        return 0.5
-
-
 def main():
     out_dir = Path(CFG.runs_dir) / CFG.run_name / "independent_test"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -132,21 +108,15 @@ def main():
     labels = load_label_map(CFG.inference_manual_csv)
 
     openai_key = os.environ.get("OPENAI_API_KEY")
-    google_key = os.environ.get("GOOGLE_API_KEY")
-
-    providers = {}
-    if openai_key:
-        import openai
-        oai_client = openai.OpenAI(api_key=openai_key)
-        providers["gpt_4o_mini"] = lambda prompt, imgs: call_openai(oai_client, prompt, imgs, model="gpt-4o-mini")
-    if google_key:
-        import google.generativeai as genai
-        genai.configure(api_key=google_key)
-        providers["gemini_1_5_flash"] = lambda prompt, imgs: call_gemini(None, prompt, imgs)
-
-    if not providers:
-        print("[error] Set OPENAI_API_KEY and/or GOOGLE_API_KEY environment variables.")
+    if not openai_key:
+        print("[error] Set OPENAI_API_KEY environment variable.")
         return
+
+    import openai
+    oai_client = openai.OpenAI(api_key=openai_key)
+    providers = {
+        "gpt_4o_mini": lambda prompt, imgs: call_openai(oai_client, prompt, imgs, model="gpt-4o-mini"),
+    }
 
     for provider_name, call_fn in providers.items():
         results, y_true_list, y_prob_list, per_app_times = {}, [], [], []
@@ -178,8 +148,6 @@ def main():
             "latency_s_per_app": round(latency, 4),
             "predictions": results,
         })
-
-    print("\nDone. Report better of the two providers on validation F1 in Table 12.")
 
 
 if __name__ == "__main__":

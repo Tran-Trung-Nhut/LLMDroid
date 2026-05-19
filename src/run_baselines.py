@@ -8,7 +8,6 @@ Usage:
 
 API baselines require:
   OPENAI_API_KEY  — GPT-4o-mini (zero-shot) + GPT-4o (6-shot)
-  GOOGLE_API_KEY  — Gemini-1.5-Flash (zero-shot)
 """
 import argparse
 import os
@@ -34,7 +33,6 @@ def main():
     args = parser.parse_args()
 
     has_openai = bool(os.environ.get("OPENAI_API_KEY"))
-    has_google = bool(os.environ.get("GOOGLE_API_KEY"))
     results = {}
 
     if not args.skip_local:
@@ -50,13 +48,13 @@ def main():
             )
 
     if args.all:
-        if has_openai or has_google:
+        if has_openai:
             results["MLLM zero-shot"] = run_step(
-                "MLLM zero-shot — GPT-4o-mini + Gemini-1.5-Flash",
+                "MLLM zero-shot — GPT-4o-mini",
                 "steps.baselines.baseline_mllm_zeroshot",
             )
         else:
-            print("\n[SKIP] MLLM zero-shot — no API keys set")
+            print("\n[SKIP] MLLM zero-shot — no OPENAI_API_KEY")
 
         if has_openai:
             results["GPT-4o 6-shot"] = run_step(
