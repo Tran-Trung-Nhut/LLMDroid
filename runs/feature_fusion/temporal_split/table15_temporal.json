@@ -1,0 +1,32 @@
+{
+  "Text-Only": {
+    "random_f1": 0.73,
+    "temporal_f1": 0.716,
+    "delta": -0.014,
+    "roc_auc_temporal": 0.814
+  },
+  "Early Fusion": {
+    "random_f1": 0.71,
+    "temporal_f1": 0.785,
+    "delta": 0.075,
+    "roc_auc_temporal": 0.842
+  },
+  "Score-Max": {
+    "random_f1": 0.76,
+    "temporal_f1": 0.829,
+    "delta": 0.069,
+    "roc_auc_temporal": 0.88
+  },
+  "Soft Voting": {
+    "random_f1": 0.739,
+    "temporal_f1": 0.727,
+    "delta": -0.012,
+    "roc_auc_temporal": 0.868
+  },
+  "Stacking": {
+    "random_f1": 0.75,
+    "temporal_f1": 0.732,
+    "delta": -0.018,
+    "roc_auc_temporal": 0.847
+  }
+}

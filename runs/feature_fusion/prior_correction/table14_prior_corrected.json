@@ -1,0 +1,52 @@
+{
+  "Text-Only": {
+    "strategy": "Text-Only",
+    "threshold": 0.33,
+    "tpr": 0.977,
+    "fpr": 0.212,
+    "source": "independent test set (N=110)",
+    "prec_pi_0.005": 0.023,
+    "prec_pi_0.01": 0.044,
+    "prec_pi_0.05": 0.195
+  },
+  "Early Fusion": {
+    "strategy": "Early Fusion",
+    "threshold": 0.41,
+    "tpr": 0.977,
+    "fpr": 0.227,
+    "source": "independent test set (N=110)",
+    "prec_pi_0.005": 0.021,
+    "prec_pi_0.01": 0.042,
+    "prec_pi_0.05": 0.185
+  },
+  "Score-Max": {
+    "strategy": "Score-Max",
+    "threshold": 0.56,
+    "tpr": 0.955,
+    "fpr": 0.227,
+    "source": "independent test set (N=110)",
+    "prec_pi_0.005": 0.021,
+    "prec_pi_0.01": 0.041,
+    "prec_pi_0.05": 0.181
+  },
+  "Soft Voting": {
+    "strategy": "Soft Voting",
+    "threshold": 0.37,
+    "tpr": 0.977,
+    "fpr": 0.242,
+    "source": "independent test set (N=110)",
+    "prec_pi_0.005": 0.02,
+    "prec_pi_0.01": 0.039,
+    "prec_pi_0.05": 0.175
+  },
+  "Stacking": {
+    "strategy": "Stacking",
+    "threshold": 0.33,
+    "tpr": 0.977,
+    "fpr": 0.258,
+    "source": "independent test set (N=110)",
+    "prec_pi_0.005": 0.019,
+    "prec_pi_0.01": 0.037,
+    "prec_pi_0.05": 0.166
+  }
+}

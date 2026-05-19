@@ -1,0 +1,41 @@
+{
+  "Positives (y=1)": {
+    "n": 125,
+    "rho_pearson": 0.32,
+    "pearson_ci95": [
+      0.16,
+      0.47
+    ],
+    "rho_spearman": 0.34,
+    "spearman_ci95": [
+      0.18,
+      0.49
+    ]
+  },
+  "Negatives (y=0)": {
+    "n": 173,
+    "rho_pearson": 0.25,
+    "pearson_ci95": [
+      0.11,
+      0.4
+    ],
+    "rho_spearman": 0.36,
+    "spearman_ci95": [
+      0.21,
+      0.49
+    ]
+  },
+  "Pooled": {
+    "n": 298,
+    "rho_pearson": 0.52,
+    "pearson_ci95": [
+      0.43,
+      0.61
+    ],
+    "rho_spearman": 0.54,
+    "spearman_ci95": [
+      0.45,
+      0.62
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+strategy,threshold,tpr,fpr,source,prec_pi_0.005,prec_pi_0.01,prec_pi_0.05
+Text-Only,0.33,0.977,0.212,independent test set (N=110),0.023,0.044,0.195
+Early Fusion,0.41,0.977,0.227,independent test set (N=110),0.021,0.042,0.185
+Score-Max,0.56,0.955,0.227,independent test set (N=110),0.021,0.041,0.181
+Soft Voting,0.37,0.977,0.242,independent test set (N=110),0.02,0.039,0.175
+Stacking,0.33,0.977,0.258,independent test set (N=110),0.019,0.037,0.166
