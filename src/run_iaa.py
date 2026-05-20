@@ -1,4 +1,4 @@
-"""cohen_kappa_iaa.py — Table 1: Inter-annotator agreement (N=100 apps)."""
+"""run_iaa.py — Table 1: Inter-annotator agreement (N=100 apps)."""
 import sys
 import os
 import numpy as np
@@ -7,19 +7,15 @@ from pathlib import Path
 from sklearn.metrics import cohen_kappa_score
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
-_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
 os.chdir(_PROJECT_ROOT)
-if str(_SCRIPT_DIR.parent) not in sys.path:
-    sys.path.insert(0, str(_SCRIPT_DIR.parent))
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 from config import CFG
 
-# ── Input CSV format ───────────────────────────────────────────────────────────
-# data/inter_annotator.csv  (path: CFG.iaa_csv) with columns:
-#   app_id       : string
-#   annotator1   : int (0 or 1)
-#   annotator2   : int (0 or 1)
-#   final_label  : int (0 or 1) — after adjudication (optional)
+# Input: CFG.iaa_csv = data/inter_annotator.csv
+# Columns: app_id, annotator1 (0/1), annotator2 (0/1), final_label (0/1, optional)
 
 
 def bootstrap_kappa_ci(labels1: np.ndarray, labels2: np.ndarray):
@@ -73,7 +69,7 @@ def main():
         print(f"{'  resolved as negative':<30} {resolved_neg}")
     print("=" * 55)
 
-    out_path = Path(CFG.runs_dir) / "cohen_kappa_iaa.txt"
+    out_path = Path(CFG.runs_dir) / "cohen_kappa" / "iaa.txt"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         f.write(f"n_apps={n_apps}\n")

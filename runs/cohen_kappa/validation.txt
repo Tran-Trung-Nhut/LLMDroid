@@ -1,0 +1,3 @@
+n_apps=80
+ai_discriminator_kappa=0.075
+ai_discriminator_pct_agreement=53.8

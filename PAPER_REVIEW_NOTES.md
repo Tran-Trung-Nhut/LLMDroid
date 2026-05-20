@@ -18,7 +18,40 @@
 
 ---
 
-### 1.2 Baseline Gemini-1.5-Flash bị loại bỏ
+### 1.2 LLMAID bị loại bỏ hoàn toàn — Table 2 cần reframe
+
+**Paper mô tả (Section 4.1.2, Table 2):** Construct validity được chứng minh bằng 2 tool chạy trên N_code = 80 apps:
+- LLMAID (Liu et al. [15]): κ = 0.847, Agreement = 92.5% → bằng chứng chính
+- AI Discriminator (Li et al. [14]): κ = 0.604, Agreement = 82.5% → bằng chứng phụ, giải thích thấp hơn vì cloud API
+
+**Thực tế hiện tại:** LLMAID **không có public inference code**, không thể chạy được. Đã xóa hoàn toàn khỏi `src/steps/run_code_validation.py` và `src/steps/cohen_kappa_validation.py`. Không còn cột `llmaid_label` nào trong pipeline.
+
+**Kết quả thực tế chỉ với AI Discriminator (N_code = 80):**
+
+| | AI Discriminator |
+|---|---|
+| Listing positive → AI Disc=1 | 8/40 (20%) |
+| Listing negative → AI Disc=0 | 35/40 (88%) |
+| Agreement | 53.8% |
+| Cohen's κ | **0.075** |
+
+κ = 0.075 ≈ "slight agreement" — **không thể dùng làm construct validity evidence**.
+
+**Lý do kết quả thấp (hợp lý về mặt khoa học):** 32/40 app listing-positive bị AI Discriminator miss vì chúng tích hợp LLM qua **cloud API** (không nhúng TensorFlow/PyTorch trong APK). AI Discriminator chỉ scan local ML library identifiers trong smali code — hoàn toàn bỏ qua cloud-API LLM apps.
+
+**Hướng xử lý trong paper — KHÔNG đề cập LLMAID nữa:**
+
+Reframe Section 4.1.2 và Table 2 theo narrative mới:
+> *"Kiểm tra chéo với AI Discriminator trên N_code = 79 apps cho thấy κ = 0.075, thấp hơn nhiều so với listing label. Phân tích các trường hợp miss cho thấy 80% app listing-positive bị bỏ qua là các app gọi LLM qua cloud API — không có ML library nào trong APK để AI Discriminator phát hiện. Kết quả này xác nhận rằng static code analysis tools có recall gap nghiêm trọng với cloud-API LLM apps, và đây chính là lý do LLMDroid cần thiết: listing-based screening phát hiện được nhóm app này mà code-level tools không thể."*
+
+**Lưu ý quan trọng:** Xóa hoàn toàn mọi con số của LLMAID (κ = 0.847, 92.5%) khỏi paper, bao gồm:
+- Abstract: *"Cohen's κ = 0.847"* → phải xóa hoặc thay
+- Section 4.1.2: toàn bộ đoạn so sánh với LLMAID
+- Table 2: bỏ cột LLMAID, chỉ giữ cột AI Discriminator với số mới
+
+---
+
+### 1.3 Baseline Gemini-1.5-Flash bị loại bỏ
 
 **Paper mô tả (Section 4.2, Table 12):** So sánh với 4 baseline, trong đó có *MLLM zero-shot (GPT-4o-mini / Gemini-1.5-Flash)*, báo cáo kết quả tốt hơn của 2 provider. Gemini-1.5-Flash đạt: Acc=0.791, F1=0.735, AUC=0.864.
 
@@ -172,6 +205,7 @@ Full image branch thấp hơn 3 điểm AUC. CLIP ViT-L/14-336 được dùng đ
 
 ## Phần 4 — Checklist cho teammate
 
+- [ ] **Rewrite Section 4.1.2 và Table 2:** Xóa toàn bộ LLMAID. Đổi narrative thành "AI Discriminator recall gap chứng minh sự cần thiết của LLMDroid". Cập nhật số: N_code=80, κ=0.075, Agreement=53.8%. Xóa κ=0.847 khỏi abstract và body.
 - [ ] **Quyết định D_cut:** Giữ 2026-04-30 và sửa narrative Section 5.9, hoặc tìm cách reproduce D_cut 2025-06-01 đúng với paper.
 - [ ] **Quyết định Gemini baseline:** Ghi chú deprecated, thay bằng model khác, hoặc bỏ dòng Gemini trong Table 12.
 - [ ] **Điều tra Table 20:** Tại sao Early Fusion > Soft Voting? Kiểm tra lại label file `inference_manual.csv` có đúng 44 positives / 66 negatives không.
