@@ -49,10 +49,10 @@ DECOMPILE_DIR         = Path("data/decompiled")
 CHECKPOINT            = Path("data/code_validation_checkpoint.json")
 
 # ── Configure tool paths ───────────────────────────────────────────────────────
-JADX_BIN    = os.environ.get("JADX_BIN", "jadx")
-LLMAID_BIN  = ""  # not publicly available — skipped automatically
-AI_DISC_CLI = _PROJECT_ROOT / "AIApp-custom" / "identification" / "ai_discriminator_cli.py"
-AI_DISC_BIN = f"python {AI_DISC_CLI}"
+LLMAID_BIN   = ""  # not publicly available — skipped automatically
+AI_DISC_CLI  = _PROJECT_ROOT / "AIApp-custom" / "identification" / "ai_discriminator_cli.py"
+AI_DISC_BIN  = f"python {AI_DISC_CLI}"
+APKTOOL_JAR  = _PROJECT_ROOT / "AIApp-custom" / "identification" / "apktool_2.5.0.jar"
 
 
 # ── Androzoo helpers ──────────────────────────────────────────────────────────
@@ -98,7 +98,8 @@ def decompile(apk_path: Path, out_dir: Path) -> bool:
         return True
     out_dir.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
-        [JADX_BIN, "-d", str(out_dir), str(apk_path)],
+        ["java", "-jar", str(APKTOOL_JAR), "d", "-s", "-f",
+         str(apk_path), "-o", str(out_dir)],
         capture_output=True, timeout=300,
     )
     return result.returncode == 0
