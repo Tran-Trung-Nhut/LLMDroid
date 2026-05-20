@@ -15,10 +15,9 @@ from config import CFG
 
 # ── Input CSV format ───────────────────────────────────────────────────────────
 # data/code_validation.csv  (path: CFG.code_validation_csv) with columns:
-#   app_id                 : string
+#   pkg_name               : string
 #   listing_label          : int (0 or 1) — label used by LLMDroid
-#   llmaid_label           : int (0 or 1) — output from LLMAID tool
-#   ai_discriminator_label : int (0 or 1) — output from AI Discriminator (optional)
+#   ai_discriminator_label : int (0 or 1) — output from AI Discriminator
 
 
 def _stats(df: pd.DataFrame, ref_col: str, pred_col: str, name: str) -> dict:
@@ -51,52 +50,35 @@ def main():
     val_path = Path(CFG.code_validation_csv)
     if not val_path.exists():
         print(f"ERROR: {val_path} not found.")
-        print("Create a CSV with columns: app_id, listing_label, llmaid_label, ai_discriminator_label")
+        print("Create a CSV with columns: pkg_name, listing_label, ai_discriminator_label")
         sys.exit(1)
 
     df = pd.read_csv(val_path)
-    if not {"listing_label", "llmaid_label"}.issubset(df.columns):
-        print("ERROR: CSV must have columns: listing_label, llmaid_label")
+    if not {"listing_label", "ai_discriminator_label"}.issubset(df.columns):
+        print("ERROR: CSV must have columns: listing_label, ai_discriminator_label")
         sys.exit(1)
 
     n_apps = len(df)
-    results = [_stats(df, "listing_label", "llmaid_label", "LLMAID")]
-    cols = ["llmaid_label"]
-
-    if "ai_discriminator_label" in df.columns:
-        results.append(_stats(df, "listing_label", "ai_discriminator_label", "AI Discriminator"))
-        cols.append("ai_discriminator_label")
+    r = _stats(df, "listing_label", "ai_discriminator_label", "AI Discriminator")
 
     print("=" * 65)
     print(f"Table 2: Listing-label vs code-level references (N_code = {n_apps})")
     print("=" * 65)
-    for r, col in zip(results, cols):
-        _print_block(df, r, col)
+    _print_block(df, r, "ai_discriminator_label")
 
     print("\n" + "=" * 65)
     print("Summary:")
-    print(f"  {'':30} {'LLMAID':>10}", end="")
-    if len(results) > 1:
-        print(f"  {'AI Disc.':>10}", end="")
-    print()
-    print(f"  {'Agreement':<30} {results[0]['pct']:>9.1f}%", end="")
-    if len(results) > 1:
-        print(f"  {results[1]['pct']:>9.1f}%", end="")
-    print()
-    print(f"  {'Cohen kappa':<30} {results[0]['kappa']:>10.3f}", end="")
-    if len(results) > 1:
-        print(f"  {results[1]['kappa']:>10.3f}", end="")
-    print()
+    print(f"  {'':30} {'AI Disc.':>10}")
+    print(f"  {'Agreement':<30} {r['pct']:>9.1f}%")
+    print(f"  {'Cohen kappa':<30} {r['kappa']:>10.3f}")
     print("=" * 65)
 
     out_path = Path(CFG.runs_dir) / "cohen_kappa_validation.txt"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         f.write(f"n_apps={n_apps}\n")
-        for r in results:
-            prefix = r["name"].lower().replace(" ", "_")
-            f.write(f"{prefix}_kappa={r['kappa']:.3f}\n")
-            f.write(f"{prefix}_pct_agreement={r['pct']:.1f}\n")
+        f.write(f"ai_discriminator_kappa={r['kappa']:.3f}\n")
+        f.write(f"ai_discriminator_pct_agreement={r['pct']:.1f}\n")
     print(f"\nSaved: {out_path}")
 
 

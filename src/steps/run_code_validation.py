@@ -16,7 +16,6 @@ Setup:
 import csv
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -38,7 +37,6 @@ APK_DIR               = Path("data/apks")
 DECOMPILE_DIR         = Path("data/decompiled")
 CHECKPOINT            = Path("data/code_validation_checkpoint.json")
 
-# ── Configure tool paths ───────────────────────────────────────────────────────
 AI_DISC_CLI  = _PROJECT_ROOT / "AIApp-custom" / "identification" / "ai_discriminator_cli.py"
 AI_DISC_BIN  = f"python {AI_DISC_CLI}"
 APKTOOL_JAR  = _PROJECT_ROOT / "AIApp-custom" / "identification" / "apktool_2.5.0.jar"
@@ -59,8 +57,7 @@ def load_pkg2sha(target_pkgs: set) -> dict:
             if pkg not in pkg2date or date > pkg2date[pkg]:
                 pkg2date[pkg] = date
                 pkg2sha[pkg]  = row["sha256"].strip()
-    found = len(pkg2sha)
-    print(f"  Found: {found}/{len(target_pkgs)}")
+    print(f"  Found: {len(pkg2sha)}/{len(target_pkgs)}")
     return pkg2sha
 
 
@@ -94,9 +91,9 @@ def decompile(apk_path: Path, out_dir: Path) -> bool:
     return result.returncode == 0
 
 
-# ── Tool runners ──────────────────────────────────────────────────────────────
+# ── AI Discriminator ──────────────────────────────────────────────────────────
 
-def run_ai_discriminator(decompiled_dir: Path, pkg: str) -> int:
+def run_ai_discriminator(decompiled_dir: Path) -> int:
     result = subprocess.run(
         AI_DISC_BIN.split() + ["--dir", str(decompiled_dir)],
         capture_output=True, text=True, timeout=120,
@@ -133,14 +130,12 @@ def main():
         print("  Then: gunzip latest.csv.gz && mv latest.csv data/androzoo_latest.csv")
         sys.exit(1)
 
-    # Load 80-app list
     apps = []
     with open(APPS_CSV, encoding="utf-8") as f:
         for row in csv.DictReader(f):
             apps.append({"pkg": row["pkg_name"], "listing_label": int(row["listing_label"])})
     print(f"Target: {len(apps)} apps")
 
-    # Find APKs in Androzoo metadata
     target_pkgs = {a["pkg"] for a in apps}
     pkg2sha = load_pkg2sha(target_pkgs)
 
@@ -162,7 +157,6 @@ def main():
 
         row = {"pkg_name": pkg, "listing_label": label, "ai_discriminator_label": -1}
 
-        # 1. Check Androzoo
         sha256 = pkg2sha.get(pkg)
         if not sha256:
             print("  [skip] not found in Androzoo")
@@ -172,7 +166,6 @@ def main():
             results.append(row)
             continue
 
-        # 2. Download APK
         apk_path = APK_DIR / f"{pkg}.apk"
         if not apk_path.exists():
             print(f"  Downloading ({sha256[:12]}...)...", end=" ", flush=True)
@@ -187,7 +180,6 @@ def main():
         else:
             print("  APK already exists")
 
-        # 3. Decompile
         dec_dir = DECOMPILE_DIR / pkg
         print(f"  Decompiling...", end=" ", flush=True)
         ok = decompile(apk_path, dec_dir)
@@ -199,16 +191,14 @@ def main():
             results.append(row)
             continue
 
-        # 4. Run AI Discriminator
         print(f"  AI Discriminator...", end=" ", flush=True)
-        row["ai_discriminator_label"] = run_ai_discriminator(dec_dir, pkg)
+        row["ai_discriminator_label"] = run_ai_discriminator(dec_dir)
         print(row["ai_discriminator_label"])
 
         done[pkg] = row
         save_checkpoint(done)
         results.append(row)
 
-    # Write output CSV (apps where at least AI Discriminator ran)
     valid = [r for r in results if r.get("ai_discriminator_label", -1) != -1]
     with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["pkg_name", "listing_label", "ai_discriminator_label"])
@@ -219,9 +209,9 @@ def main():
     n_androzoo = sum(1 for r in results if r.get("note") != "not_in_androzoo")
     n_done = len(valid)
     print(f"\nSummary:")
-    print(f"  Total targets       : {n_total}")
-    print(f"  Found on Androzoo   : {n_androzoo}")
-    print(f"  AI Discriminator ran: {n_done}")
+    print(f"  Total targets          : {n_total}")
+    print(f"  Found on Androzoo      : {n_androzoo}")
+    print(f"  AI Discriminator ran   : {n_done}")
     print(f"  Output: {OUT_CSV}")
     print(f"\nNext: python src/steps/cohen_kappa_validation.py")
 
