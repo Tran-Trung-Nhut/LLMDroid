@@ -96,7 +96,7 @@ def decompile(apk_path: Path, out_dir: Path) -> bool:
 def run_ai_discriminator(decompiled_dir: Path) -> int:
     result = subprocess.run(
         AI_DISC_BIN.split() + ["--dir", str(decompiled_dir)],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True, text=True, timeout=600,
     )
     for line in reversed(result.stdout.strip().splitlines()):
         if line.strip() in ("0", "1"):
