@@ -84,7 +84,7 @@ def decompile(apk_path: Path, out_dir: Path) -> bool:
         return True
     out_dir.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
-        ["java", "-jar", str(APKTOOL_JAR), "d", "-s", "-f",
+        ["java", "-jar", str(APKTOOL_JAR), "d", "-f",
          str(apk_path), "-o", str(out_dir)],
         capture_output=True, timeout=300,
     )
