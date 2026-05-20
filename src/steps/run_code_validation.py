@@ -1,26 +1,16 @@
 """
-run_code_validation.py — Table 2: End-to-end pipeline for N_code=80 code-level validation.
+run_code_validation.py — Table 2: N_code=80 code-level validation with AI Discriminator.
 
-Downloads APKs from Androzoo, decompiles with jadx, runs LLMAID + AI Discriminator,
+Downloads APKs from Androzoo, decompiles with apktool (bundled), runs AI Discriminator,
 and writes data/code_validation.csv for cohen_kappa_validation.py.
 
-Setup on Lightning AI:
+Setup:
     pip install requests
-    apt-get install -y default-jre                   # required by jadx
-    wget https://github.com/skylot/jadx/releases/latest/download/jadx-1.5.0.zip
-    unzip jadx-1.5.0.zip -d /opt/jadx
-    export PATH=$PATH:/opt/jadx/bin
-
-    # Androzoo metadata (large file, ~3 GB compressed):
+    # Androzoo metadata (~3 GB):
     wget https://androzoo.uni.lu/static/lists/latest.csv.gz
     gunzip latest.csv.gz && mv latest.csv data/androzoo_latest.csv
 
-    # Install LLMAID (Liu et al. [15]) — see their GitHub for setup
-    # Install AI Discriminator (Li et al. [14]) — see their GitHub for setup
-
     export ANDROZOO_API_KEY=your_key_here
-    export OPENAI_API_KEY=your_openai_key     # required by LLMAID
-
     python src/steps/run_code_validation.py
 """
 import csv
@@ -49,7 +39,6 @@ DECOMPILE_DIR         = Path("data/decompiled")
 CHECKPOINT            = Path("data/code_validation_checkpoint.json")
 
 # ── Configure tool paths ───────────────────────────────────────────────────────
-LLMAID_BIN   = ""  # not publicly available — skipped automatically
 AI_DISC_CLI  = _PROJECT_ROOT / "AIApp-custom" / "identification" / "ai_discriminator_cli.py"
 AI_DISC_BIN  = f"python {AI_DISC_CLI}"
 APKTOOL_JAR  = _PROJECT_ROOT / "AIApp-custom" / "identification" / "apktool_2.5.0.jar"
@@ -107,33 +96,7 @@ def decompile(apk_path: Path, out_dir: Path) -> bool:
 
 # ── Tool runners ──────────────────────────────────────────────────────────────
 
-def run_llmaid(decompiled_dir: Path, pkg: str) -> int:
-    """
-    Run LLMAID on decompiled code directory.
-    Expected: prints JSON to stdout with key "label" (0 or 1).
-    Adjust command to match actual LLMAID CLI.
-    """
-    result = subprocess.run(
-        LLMAID_BIN.split() + ["--apk-dir", str(decompiled_dir), "--pkg", pkg],
-        capture_output=True, text=True, timeout=120,
-    )
-    try:
-        out = json.loads(result.stdout)
-        return int(out.get("label", out.get("prediction", -1)))
-    except Exception:
-        # Fallback: look for 0/1 in last line
-        for line in reversed(result.stdout.strip().splitlines()):
-            if line.strip() in ("0", "1"):
-                return int(line.strip())
-    return -1
-
-
 def run_ai_discriminator(decompiled_dir: Path, pkg: str) -> int:
-    """
-    Run AI Discriminator on decompiled code directory.
-    Expected: prints 0 or 1 to stdout.
-    Adjust command to match actual AI Discriminator CLI.
-    """
     result = subprocess.run(
         AI_DISC_BIN.split() + ["--dir", str(decompiled_dir)],
         capture_output=True, text=True, timeout=120,
@@ -197,7 +160,7 @@ def main():
             results.append(done[pkg])
             continue
 
-        row = {"pkg_name": pkg, "listing_label": label, "llmaid_label": -1, "ai_discriminator_label": -1}
+        row = {"pkg_name": pkg, "listing_label": label, "ai_discriminator_label": -1}
 
         # 1. Check Androzoo
         sha256 = pkg2sha.get(pkg)
@@ -236,15 +199,7 @@ def main():
             results.append(row)
             continue
 
-        # 4. Run LLMAID (optional — skip if binary not configured)
-        if LLMAID_BIN and LLMAID_BIN != "llmaid":
-            print(f"  LLMAID...", end=" ", flush=True)
-            row["llmaid_label"] = run_llmaid(dec_dir, pkg)
-            print(row["llmaid_label"])
-        else:
-            print("  LLMAID... [skipped — LLMAID_BIN not set]")
-
-        # 5. Run AI Discriminator
+        # 4. Run AI Discriminator
         print(f"  AI Discriminator...", end=" ", flush=True)
         row["ai_discriminator_label"] = run_ai_discriminator(dec_dir, pkg)
         print(row["ai_discriminator_label"])
@@ -256,7 +211,7 @@ def main():
     # Write output CSV (apps where at least AI Discriminator ran)
     valid = [r for r in results if r.get("ai_discriminator_label", -1) != -1]
     with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["pkg_name", "listing_label", "llmaid_label", "ai_discriminator_label"])
+        writer = csv.DictWriter(f, fieldnames=["pkg_name", "listing_label", "ai_discriminator_label"])
         writer.writeheader()
         writer.writerows([{k: r.get(k, -1) for k in writer.fieldnames} for r in valid])
 
@@ -264,9 +219,9 @@ def main():
     n_androzoo = sum(1 for r in results if r.get("note") != "not_in_androzoo")
     n_done = len(valid)
     print(f"\nSummary:")
-    print(f"  Total targets    : {n_total}")
-    print(f"  Found on Androzoo: {n_androzoo}")
-    print(f"  LLMAID completed : {n_done}")
+    print(f"  Total targets       : {n_total}")
+    print(f"  Found on Androzoo   : {n_androzoo}")
+    print(f"  AI Discriminator ran: {n_done}")
     print(f"  Output: {OUT_CSV}")
     print(f"\nNext: python src/steps/cohen_kappa_validation.py")
 
