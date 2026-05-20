@@ -1,0 +1,6 @@
+n_apps=100
+pct_agreement=81.0
+kappa=0.632
+kappa_ci_lo=0.491
+kappa_ci_hi=0.763
+disagreements=19

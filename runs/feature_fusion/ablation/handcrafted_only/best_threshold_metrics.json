@@ -1,5 +1,5 @@
 {
-  "threshold": 0.4100000000000001,
+  "threshold": 0.41000000000000003,
   "accuracy": 0.8,
   "precision_pos": 0.7653061224489796,
   "recall_pos": 0.75,
@@ -17,5 +17,5 @@
       75
     ]
   ],
-  "best_threshold": 0.4100000000000001
+  "best_threshold": 0.41000000000000003
 }

@@ -1,0 +1,26 @@
+{
+  "Text-Only": {
+    "disagree_set_size": 81,
+    "disagree_accuracy": 0.704
+  },
+  "Image-Only": {
+    "disagree_set_size": 81,
+    "disagree_accuracy": 0.494
+  },
+  "Early Fusion": {
+    "disagree_set_size": 81,
+    "disagree_accuracy": 0.654
+  },
+  "Score-Max": {
+    "disagree_set_size": 81,
+    "disagree_accuracy": 0.605
+  },
+  "Soft Voting": {
+    "disagree_set_size": 81,
+    "disagree_accuracy": 0.691
+  },
+  "Stacking": {
+    "disagree_set_size": 81,
+    "disagree_accuracy": 0.704
+  }
+}

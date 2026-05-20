@@ -1,0 +1,5 @@
+app_id,annotator1,annotator2,final_label
+com.example.app1,1,1,1
+com.example.app2,0,0,0
+com.example.app3,1,0,1
+com.example.app4,0,1,0

@@ -1,3 +1,7 @@
 venv
 /data/apps.csv
 __pycache__
+
+# Implementation and Planning files
+CHANGES_V2.md
+# main-v2.pdf

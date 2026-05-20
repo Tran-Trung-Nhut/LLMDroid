@@ -1,0 +1,25 @@
+{
+  "metrics": {
+    "threshold": 0.5,
+    "accuracy": 0.8363636363636363,
+    "precision_pos": 0.7407407407407407,
+    "recall_pos": 0.9090909090909091,
+    "f1_pos": 0.8163265306122449,
+    "macro_f1": 0.8343927735028438,
+    "pr_auc": 0.8780320842854072,
+    "roc_auc": 0.9207988980716254,
+    "confusion_matrix": [
+      [
+        52,
+        14
+      ],
+      [
+        4,
+        40
+      ]
+    ]
+  },
+  "latency_s_per_app": 0.0185,
+  "protocol": "5-fold ensemble on independent test set (N=110)",
+  "architecture": "BGE(1024) + CLIP_mean(768) -> Linear(512) -> 2xTransformerEncoder -> binary head"
+}

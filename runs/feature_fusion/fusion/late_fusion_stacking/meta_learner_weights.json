@@ -1,6 +1,6 @@
 {
-  "text_weight": 1.2180403232848194,
-  "image_weight": 1.199660032901896,
-  "intercept": -0.43854482483083984,
-  "interpretation": "Text: 1.218, Image: 1.200"
+  "text_weight": 1.2849417375455403,
+  "image_weight": 0.9790233510168087,
+  "intercept": -0.40552385181588113,
+  "interpretation": "Text: 1.285, Image: 0.979"
 }

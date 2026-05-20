@@ -300,6 +300,7 @@ def cleanup_inference_images(dataset_path: str, images_root: str) -> None:
 
 def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, output_dir: Path) -> None:
     output_dir_abs = output_dir.resolve()
+    features_test_abs = (_PROJECT_ROOT / Path(CFG.features_test_dir)).resolve()
 
     artifact_paths = [
         Path(preprocessed_path),
@@ -310,13 +311,13 @@ def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, outpu
 
     removed_files = 0
     removed_dirs = 0
-    skipped_output_dir = 0
+    skipped = 0
 
     for artifact in artifact_paths:
         artifact_abs = artifact.resolve() if artifact.is_absolute() else (_PROJECT_ROOT / artifact).resolve()
 
-        if artifact_abs == output_dir_abs:
-            skipped_output_dir += 1
+        if artifact_abs == output_dir_abs or artifact_abs == features_test_abs:
+            skipped += 1
             continue
 
         if artifact_abs.exists() and artifact_abs.is_file():
@@ -329,8 +330,8 @@ def cleanup_inference_artifacts(preprocessed_path: str, features_dir: str, outpu
     print_section("ARTIFACT CLEANUP")
     print(f"Removed files: {removed_files}")
     print(f"Removed directories: {removed_dirs}")
-    if skipped_output_dir:
-        print(f"Skipped output directory: {output_dir_abs}")
+    if skipped:
+        print(f"Skipped (output/features_test): {skipped}")
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -393,12 +394,12 @@ def main():
     early_fusion_dir = MODELS_DIR / "fusion" / "early_fusion"
     stacking_dir = MODELS_DIR / "fusion" / "late_fusion_stacking"
     soft_voting_dir = MODELS_DIR / "fusion" / "late_fusion_soft_voting"
-    max_voting_dir = MODELS_DIR / "fusion" / "late_fusion_max_voting"
-    
+    score_max_dir = MODELS_DIR / "fusion" / "late_fusion_score_max"
+
     ef_opt_threshold = get_optimal_threshold(early_fusion_dir)
     stack_opt_threshold = get_optimal_threshold(stacking_dir)
     soft_opt_threshold = get_optimal_threshold(soft_voting_dir)
-    max_opt_threshold = get_optimal_threshold(max_voting_dir)
+    score_max_opt_threshold = get_optimal_threshold(score_max_dir)
     
     print_section("EARLY FUSION")
     ef_prob = ensemble_early_fusion(all_feats)
@@ -415,17 +416,17 @@ def main():
     print_and_save_report("SOFT VOTING", app_ids, labels, soft_prob, soft_opt_threshold,
                          output_dir / "soft_voting_inference.csv", has_real_labels)
     
-    print_section("MAX VOTING")
-    max_prob = ensemble_late_fusion_max_voting(text_feats, image_feats)
-    print_and_save_report("MAX VOTING", app_ids, labels, max_prob, max_opt_threshold,
-                         output_dir / "max_voting_inference.csv", has_real_labels)
-    
+    print_section("SCORE-MAX")
+    score_max_prob = ensemble_late_fusion_max_voting(text_feats, image_feats)
+    print_and_save_report("SCORE-MAX", app_ids, labels, score_max_prob, score_max_opt_threshold,
+                         output_dir / "score_max_inference.csv", has_real_labels)
+
     print_section("COMPLETED")
     print(f"Results: {output_dir}")
     print(f"  - early_fusion_inference.csv")
     print(f"  - stacking_inference.csv")
     print(f"  - soft_voting_inference.csv")
-    print(f"  - max_voting_inference.csv")
+    print(f"  - score_max_inference.csv")
 
     if args.input_raw and not args.keep_images:
         cleanup_inference_images(CFG.inference_dataset_path, CFG.images_dir)

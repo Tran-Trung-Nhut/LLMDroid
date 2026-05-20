@@ -1,0 +1,466 @@
+{
+  "metrics": {
+    "threshold": 0.5,
+    "accuracy": 0.7454545454545455,
+    "precision_pos": 0.6333333333333333,
+    "recall_pos": 0.8636363636363636,
+    "f1_pos": 0.7307692307692307,
+    "macro_f1": 0.7446949602122015,
+    "pr_auc": 0.6015151515151516,
+    "roc_auc": 0.7651515151515152,
+    "cost_per_app": 0.02,
+    "confusion_matrix": [
+      [
+        44,
+        22
+      ],
+      [
+        6,
+        38
+      ]
+    ]
+  },
+  "latency_s_per_app": 4.2034,
+  "predictions": {
+    "com.amech.hunting.jungle.animals": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.CallRecord": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.adobe.spark.post": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.aspiration.postermaker.editor": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.businessmarketing": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.delgeo.desygner": {
+      "y_true": 1,
+      "y_prob": 0.03
+    },
+    "com.skysoft.removalfree": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "rs.ignite.paintation": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "toon.photo.cartoon.editor": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.johnboysoftware.jbv1": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.navmii.android.dashcam": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.seeworld.gljdw": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "info.hasanaga.azerus": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "net.fileden.dictionary": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "ua.mybible": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.accela.pma": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.airgms.mobile": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.autoroutesante.iCyclop": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.bpmobile.iscanner.free": {
+      "y_true": 1,
+      "y_prob": 0.03
+    },
+    "com.companyname.Unimovil": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.deltatechnepal.delta_sales_app": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.digistore24.reports": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.fareclock.tc": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.flick2know.gt": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.getjobber.jobber": {
+      "y_true": 1,
+      "y_prob": 0.03
+    },
+    "com.gigsmart.requester": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.hirist.jobseeker": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.intellifluence.intellifluence": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.ionicframework.snapaddybusinesscards938320": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.itgurussoftware.android.peoplehr": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.mailchimp.mailchimp": {
+      "y_true": 1,
+      "y_prob": 0.03
+    },
+    "com.markate.markatepro": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.method.methodcrm": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.mhelpdesk.endeavor": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.mobisystems.editor.office_with_reg": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.pegasustranstech.transflonowplus": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.pennyapp.pennyy": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.perfectcorp.ymkbusiness": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.plangrid.android": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.procurify.client": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.spatialnetworks.fulcrum": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.tm.mms.TeleMessageClientApp": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.trane.bassuite.android": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.vaion.vcore": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.viasql.classic": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.wantedly.android.namecard_scanner": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "cz.dactylgroup.smartsupp.android": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "io.doubletick.mobile.crm": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "io.shepherdworkshop.app": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "nl.ibridge.planning": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "org.geminishalesolutions.gemini": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "ru.dikidi.beauty.business": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "th.co.gofive.empeo": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "us.nextforce.app": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.astarsoftware.spades": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.casualino.vipbelote.single": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.eryodsoft.android.cards.damedepique": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.eryodsoft.android.cards.tarot.lite": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.jpapale.cyberjass": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.tonielro.mygdxgame": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "net.becvert.tarotfrancais": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.iaan.pencilcamera": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.gemtechnologies.gem4me": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.handcent.app.nextsms": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.jesusrojo.vttvfull": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.messages.chat": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "ai.boyfriend.virtual.dating.lover.iboy": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "ai.praktika.android": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "ai.rocky.app": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "app.awarefy.awarefyapp": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "co.vulcanlabs.pictranslator": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.adobe.reader": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.baek.Gatalk_market": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.coursehero.coursehero": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.ejoy.epic": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.innovate.BlackPeopleMingle": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.innovate.ChinaSocial": {
+      "y_true": 1,
+      "y_prob": 0.03
+    },
+    "com.innovate.MalaysianSocial": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.innovate.SaudiArabiaCupid": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.innovate.SingaporeSocial": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.innovate.ThaiSocial": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.kindermate.kai": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.mailtime.android": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.microsoft.bing": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.mingle.AussieSocial": {
+      "y_true": 1,
+      "y_prob": 0.03
+    },
+    "com.mingle.DutchCupid": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.mingle.EuropianMingle": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.mingle.PolishCupid": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.mingle.SwissCupid": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.mingle.VenezuelaCupid": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.redraw.keyboard": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.smartremote.homepodsiri": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.surrealwork.mementomori": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.tag_hive.saathi.saathi": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.testa.databot": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.tuya.smartlife": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.wellocution.androidapp": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.xvideostudio.videodownload": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "help.simplicity.simplicity": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "in.softecks.artificialintelligence": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "insights.investments.app": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "messenger.x.chat.bot.messenger.release": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "quick.read.app": {
+      "y_true": 1,
+      "y_prob": 0.97
+    },
+    "com.cenkle.chat.elele": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.lt.ieltspracticetest": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.nosapps.android.get2clouds": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.psychictxt.psychictxtapplication": {
+      "y_true": 0,
+      "y_prob": 0.03
+    },
+    "com.strangers.chat_developers.strangerschatapp": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "com.truecaller": {
+      "y_true": 0,
+      "y_prob": 0.97
+    },
+    "de.inforapid.knowledgebasebuilder.free.android": {
+      "y_true": 0,
+      "y_prob": 0.03
+    }
+  }
+}

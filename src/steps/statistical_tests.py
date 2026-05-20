@@ -1,20 +1,17 @@
 """
-statistical_tests.py — McNemar's test + Bootstrap AUC CI.
+statistical_tests.py — McNemar + Bootstrap AUC + DeLong + Holm/BH + Cliff's delta.
 
 Compares every fusion strategy against text_only baseline.
-No retraining needed — uses saved predictions.csv files.
-
-Output: runs/<run_name>/statistical_tests/
-  results.json     — full test statistics
-  summary.csv      — one row per comparison (for the paper table)
+Output: runs/<run_name>/statistical_tests/{results.json, summary.csv}
 """
 import csv
+import json
 import os
 import sys
 from pathlib import Path
 
 import numpy as np
-from scipy.stats import chi2
+from scipy.stats import chi2, norm
 from sklearn.metrics import roc_auc_score
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -27,10 +24,7 @@ from config import CFG
 from utils.io import write_json
 
 
-# ── Loaders ───────────────────────────────────────────────────────────────────
-
 def load_predictions(csv_path: Path):
-    """Returns arrays (app_ids, y_true, y_prob, y_pred) sorted by app_id."""
     app_ids, y_true, y_prob = [], [], []
     with open(csv_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
@@ -45,14 +39,7 @@ def load_predictions(csv_path: Path):
     return app_ids, y_true, y_prob, y_pred
 
 
-# ── Statistical tests ─────────────────────────────────────────────────────────
-
 def mcnemar_test(y_true: np.ndarray, pred_base: np.ndarray, pred_cmp: np.ndarray) -> dict:
-    """McNemar's test with continuity correction.
-
-    n01 = baseline wrong, comparison right  (improvement cases)
-    n10 = baseline right, comparison wrong  (regression cases)
-    """
     n01 = int(np.sum((pred_base != y_true) & (pred_cmp == y_true)))
     n10 = int(np.sum((pred_base == y_true) & (pred_cmp != y_true)))
     denom = n01 + n10
@@ -67,10 +54,13 @@ def bootstrap_auc(
     y_true: np.ndarray,
     prob_base: np.ndarray,
     prob_cmp: np.ndarray,
-    n_bootstrap: int = 2000,
-    seed: int = 42,
+    n_bootstrap: int = None,
+    seed: int = None,
 ) -> dict:
-    """Bootstrap 95% CI for AUC difference (cmp - base) and one-sided p-value."""
+    if n_bootstrap is None:
+        n_bootstrap = CFG.n_bootstrap
+    if seed is None:
+        seed = CFG.seed
     rng = np.random.RandomState(seed)
     n = len(y_true)
     diffs = []
@@ -86,7 +76,6 @@ def bootstrap_auc(
     auc_base = float(roc_auc_score(y_true, prob_base))
     auc_cmp = float(roc_auc_score(y_true, prob_cmp))
     observed_diff = auc_cmp - auc_base
-    # One-sided p: fraction of bootstrap samples where diff <= 0 (null: cmp not better)
     p_one_sided = float(np.mean(diffs <= 0))
     return {
         "auc_base": round(auc_base, 4),
@@ -98,65 +87,142 @@ def bootstrap_auc(
     }
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+def delong_test(y_true: np.ndarray, prob_base: np.ndarray, prob_cmp: np.ndarray) -> dict:
+    def auc_and_components(y, pred):
+        pos = pred[y == 1]
+        neg = pred[y == 0]
+        n_pos, n_neg = len(pos), len(neg)
+        if n_pos == 0 or n_neg == 0:
+            return 0.5, np.zeros(n_pos), np.zeros(n_neg)
+        v_pos = np.array([np.mean(p > neg) + 0.5 * np.mean(p == neg) for p in pos])
+        v_neg = np.array([np.mean(n < pos) + 0.5 * np.mean(n == pos) for n in neg])
+        return float(np.mean(v_pos)), v_pos, v_neg
+
+    auc1, vp1, vn1 = auc_and_components(y_true, prob_base)
+    auc2, vp2, vn2 = auc_and_components(y_true, prob_cmp)
+
+    n_pos = int(y_true.sum())
+    n_neg = int(len(y_true) - n_pos)
+
+    var1 = np.var(vp1, ddof=1) / n_pos + np.var(vn1, ddof=1) / n_neg if n_pos > 1 and n_neg > 1 else 0.0
+    var2 = np.var(vp2, ddof=1) / n_pos + np.var(vn2, ddof=1) / n_neg if n_pos > 1 and n_neg > 1 else 0.0
+    cov = (
+        (np.cov(vp1, vp2, ddof=1)[0, 1] / n_pos if n_pos > 1 else 0.0) +
+        (np.cov(vn1, vn2, ddof=1)[0, 1] / n_neg if n_neg > 1 else 0.0)
+    )
+
+    delta = auc2 - auc1
+    se = float(np.sqrt(max(var1 + var2 - 2 * cov, 1e-12)))
+    z = delta / se
+    p_two_sided = float(2 * (1 - norm.cdf(abs(z))))
+    return {
+        "auc_base": round(float(auc1), 4),
+        "auc_cmp": round(float(auc2), 4),
+        "delta_auc": round(float(delta), 4),
+        "z_stat": round(z, 4),
+        "p_delong": round(p_two_sided, 4),
+    }
+
+
+def holm_bonferroni(p_values: list[float], alpha: float = 0.05) -> list[float]:
+    from statsmodels.stats.multitest import multipletests
+    _, p_corrected, _, _ = multipletests(p_values, alpha=alpha, method="holm")
+    return [round(float(p), 4) for p in p_corrected]
+
+
+def benjamini_hochberg(p_values: list[float], q: float = 0.10) -> list[float]:
+    from statsmodels.stats.multitest import multipletests
+    _, p_corrected, _, _ = multipletests(p_values, alpha=q, method="fdr_bh")
+    return [round(float(p), 4) for p in p_corrected]
+
+
+def cliffs_delta(fold_auc_base: list[float], fold_auc_cmp: list[float]) -> float:
+    a = np.array(fold_auc_base)
+    b = np.array(fold_auc_cmp)
+    greater = sum(1 for x in b for y in a if x > y)
+    less = sum(1 for x in b for y in a if x < y)
+    return round(float((greater - less) / (len(a) * len(b))), 4)
+
 
 def main():
     base_dir = Path(CFG.runs_dir) / CFG.run_name
     out_dir = base_dir / "statistical_tests"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print("=" * 60)
-    print("  Statistical Significance Tests")
-    print("=" * 60)
-
     baseline_csv = base_dir / "text_only" / "predictions.csv"
-    if not baseline_csv.exists():
-        print(f"[error] Baseline predictions not found: {baseline_csv}")
-        return
-
     base_ids, y_true_base, y_prob_base, y_pred_base = load_predictions(baseline_csv)
-    print(f"  Baseline: text_only  AUC={roc_auc_score(y_true_base, y_prob_base):.4f}  n={len(y_true_base)}")
 
-    comparisons = {
-        "early_fusion": base_dir / "fusion" / "early_fusion" / "predictions.csv",
-    }
+    comparisons = {"early_fusion": base_dir / "fusion" / "early_fusion" / "predictions.csv"}
     for strat in CFG.fusion_strategy:
         comparisons[f"late_{strat}"] = base_dir / "fusion" / f"late_fusion_{strat}" / "predictions.csv"
 
-    results = {}
+    def get_fold_aucs(json_path: Path) -> list[float]:
+        if not json_path.exists():
+            return []
+        with open(json_path) as f:
+            folds = json.load(f)
+        return [m["roc_auc"] for m in folds]
+
+    base_fold_aucs = get_fold_aucs(base_dir / "text_only" / "metrics_per_fold.json")
+
+    raw_results = {}
+    comparison_names = []
+    delong_pvals = []
+    bootstrap_pvals = []
+    mcnemar_pvals = []
+
     for name, csv_path in comparisons.items():
         if not csv_path.exists():
-            print(f"  [skip] {name}: predictions.csv not found")
             continue
-
         cmp_ids, y_true_cmp, y_prob_cmp, y_pred_cmp = load_predictions(csv_path)
+        assert base_ids == cmp_ids, f"ID mismatch for {name}"
 
-        if base_ids != cmp_ids:
-            print(f"  [warning] {name}: app_id order mismatch — skipping McNemar")
-            mc = {"note": "app_id order mismatch"}
-        else:
-            mc = mcnemar_test(y_true_base, y_pred_base, y_pred_cmp)
-
+        mc = mcnemar_test(y_true_base, y_pred_base, y_pred_cmp)
         boot = bootstrap_auc(y_true_base, y_prob_base, y_prob_cmp)
-        results[name] = {"mcnemar": mc, "bootstrap_auc": boot}
+        dl = delong_test(y_true_base, y_prob_base, y_prob_cmp)
 
-    write_json(out_dir / "results.json", results)
+        strat_key = name.replace("late_", "")
+        if name == "early_fusion":
+            fold_auc_path = base_dir / "fusion" / "early_fusion" / "metrics_per_fold.json"
+        else:
+            fold_auc_path = base_dir / "fusion" / f"late_fusion_{strat_key}" / "metrics_per_fold.json"
+        cmp_fold_aucs = get_fold_aucs(fold_auc_path)
+        cliff = cliffs_delta(base_fold_aucs, cmp_fold_aucs) if (base_fold_aucs and cmp_fold_aucs) else None
 
-    # Write summary CSV for the paper table
+        raw_results[name] = {"mcnemar": mc, "bootstrap_auc": boot, "delong": dl, "cliffs_delta": cliff}
+        comparison_names.append(name)
+        delong_pvals.append(dl["p_delong"])
+        bootstrap_pvals.append(boot["p_value_bootstrap"])
+        mcnemar_pvals.append(mc.get("p_value", 1.0))
+
+    p_holm = holm_bonferroni(delong_pvals)
+    p_bh = benjamini_hochberg(delong_pvals)
+
+    final_results = {}
+    for i, name in enumerate(comparison_names):
+        final_results[name] = {
+            **raw_results[name],
+            "p_holm": p_holm[i],
+            "p_bh": p_bh[i],
+        }
+
+    write_json(out_dir / "results.json", final_results)
+
     summary_rows = []
-    for name, r in results.items():
-        mc = r["mcnemar"]
+    for name, r in final_results.items():
         boot = r["bootstrap_auc"]
+        dl = r["delong"]
+        mc = r["mcnemar"]
         summary_rows.append({
             "comparison": name,
-            "auc_base": boot["auc_base"],
-            "auc_cmp": boot["auc_cmp"],
             "delta_auc": boot["delta_auc"],
             "ci95_lower": boot["ci95_lower"],
             "ci95_upper": boot["ci95_upper"],
             "p_bootstrap": boot["p_value_bootstrap"],
-            "mcnemar_n01": mc.get("n01", ""),
-            "mcnemar_n10": mc.get("n10", ""),
+            "p_delong": dl["p_delong"],
+            "p_holm": r["p_holm"],
+            "p_bh": r["p_bh"],
+            "cliffs_delta": r["cliffs_delta"],
             "mcnemar_p": mc.get("p_value", ""),
         })
     if summary_rows:
@@ -165,22 +231,6 @@ def main():
             writer.writeheader()
             writer.writerows(summary_rows)
 
-    # Pretty print
-    print(f"\n  {'Comparison':<20}  {'ΔAUC':>7}  {'95% CI':>18}  {'p(boot)':>8}  {'McNemar p':>10}")
-    print("  " + "-" * 72)
-    for name, r in results.items():
-        mc = r["mcnemar"]
-        boot = r["bootstrap_auc"]
-        mc_p = f"{mc['p_value']:.4f}" if isinstance(mc.get("p_value"), float) else "N/A"
-        sig_mc = "*" if isinstance(mc.get("p_value"), float) and mc["p_value"] < 0.05 else " "
-        sig_boot = "*" if boot["p_value_bootstrap"] < 0.05 else " "
-        print(
-            f"  {name:<20}  {boot['delta_auc']:>+.4f}  "
-            f"[{boot['ci95_lower']:>+.4f}, {boot['ci95_upper']:>+.4f}]  "
-            f"{boot['p_value_bootstrap']:.4f}{sig_boot}  "
-            f"{mc_p:>9}{sig_mc}"
-        )
-    print("\n  * p < 0.05")
     print(f"\nResults saved to: {out_dir}")
 
 

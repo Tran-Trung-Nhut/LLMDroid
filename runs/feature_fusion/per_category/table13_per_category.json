@@ -1,0 +1,44 @@
+{
+  "Productivity": {
+    "n": 6,
+    "n_pos": 4,
+    "f1_soft_voting": 0.75,
+    "f1_text_only": 0.75,
+    "delta_f1_vs_text_only": 0.0
+  },
+  "Education": {
+    "n": 7,
+    "n_pos": 6,
+    "f1_soft_voting": 0.923,
+    "f1_text_only": 1.0,
+    "delta_f1_vs_text_only": -0.08
+  },
+  "Tools": {
+    "n": 3,
+    "n_pos": 3,
+    "f1_soft_voting": 1.0,
+    "f1_text_only": 1.0,
+    "delta_f1_vs_text_only": 0.0
+  },
+  "Communication": {
+    "n": 6,
+    "n_pos": 2,
+    "f1_soft_voting": 0.571,
+    "f1_text_only": 0.8,
+    "delta_f1_vs_text_only": -0.23
+  },
+  "Lifestyle": {
+    "n": 13,
+    "n_pos": 12,
+    "f1_soft_voting": 0.96,
+    "f1_text_only": 0.909,
+    "delta_f1_vs_text_only": 0.05
+  },
+  "Other": {
+    "n": 75,
+    "n_pos": 17,
+    "f1_soft_voting": 0.757,
+    "f1_text_only": 0.765,
+    "delta_f1_vs_text_only": -0.01
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "Full listing (baseline)": {
+    "recall": 0.909,
+    "precision": 0.769,
+    "f1": 0.833,
+    "accuracy": 0.855,
+    "delta_f1": 0.0
+  },
+  "Drop screenshots": {
+    "recall": 0.841,
+    "precision": 0.86,
+    "f1": 0.851,
+    "accuracy": 0.882,
+    "delta_f1": 0.018
+  },
+  "Truncate description to 50 chars": {
+    "recall": 0.659,
+    "precision": 0.853,
+    "f1": 0.744,
+    "accuracy": 0.818,
+    "delta_f1": -0.089
+  },
+  "Drop screenshots and truncate text": {
+    "recall": 0.386,
+    "precision": 0.944,
+    "f1": 0.548,
+    "accuracy": 0.745,
+    "delta_f1": -0.285
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "threshold": 0.39,
+  "accuracy": 0.8,
+  "precision_pos": 0.75,
+  "recall_pos": 0.78,
+  "f1_pos": 0.7647058823529411,
+  "macro_f1": 0.7953964194373402,
+  "pr_auc": 0.800285667778934,
+  "roc_auc": 0.8449285714285714,
+  "confusion_matrix": [
+    [
+      114,
+      26
+    ],
+    [
+      22,
+      78
+    ]
+  ],
+  "best_threshold": 0.39
+}

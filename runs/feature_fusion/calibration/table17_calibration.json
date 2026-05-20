@@ -1,0 +1,37 @@
+{
+  "Text-Only": {
+    "brier_raw": 0.148,
+    "ece_raw": 0.0677,
+    "brier_platt": 0.155,
+    "ece_platt": 0.0695,
+    "protocol": "per-fold Platt: fit on inner-val_k, eval on outer-test_k"
+  },
+  "Early Fusion": {
+    "brier_raw": 0.144,
+    "ece_raw": 0.0695,
+    "brier_platt": 0.148,
+    "ece_platt": 0.072,
+    "protocol": "per-fold Platt: fit on inner-val_k, eval on outer-test_k"
+  },
+  "Score-Max": {
+    "brier_raw": 0.145,
+    "ece_raw": 0.1003,
+    "brier_platt": 0.143,
+    "ece_platt": 0.0577,
+    "protocol": "per-fold Platt: fit on inner-val_k, eval on outer-test_k"
+  },
+  "Soft Voting": {
+    "brier_raw": 0.142,
+    "ece_raw": 0.0796,
+    "brier_platt": 0.142,
+    "ece_platt": 0.0548,
+    "protocol": "per-fold Platt: fit on inner-val_k, eval on outer-test_k"
+  },
+  "Stacking": {
+    "brier_raw": 0.13,
+    "ece_raw": 0.0272,
+    "brier_platt": 0.138,
+    "ece_platt": 0.0536,
+    "protocol": "per-fold Platt: fit on inner-val_k, eval on outer-test_k"
+  }
+}
