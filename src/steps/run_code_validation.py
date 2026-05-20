@@ -49,9 +49,10 @@ DECOMPILE_DIR         = Path("data/decompiled")
 CHECKPOINT            = Path("data/code_validation_checkpoint.json")
 
 # ── Configure tool paths ───────────────────────────────────────────────────────
-JADX_BIN     = os.environ.get("JADX_BIN",     "jadx")
-LLMAID_BIN   = os.environ.get("LLMAID_BIN",   "llmaid")   # e.g. "python /opt/llmaid/run.py"
-AI_DISC_BIN  = os.environ.get("AI_DISC_BIN",  "ai_discriminator")
+JADX_BIN    = os.environ.get("JADX_BIN", "jadx")
+LLMAID_BIN  = ""  # not publicly available — skipped automatically
+AI_DISC_CLI = _PROJECT_ROOT / "AIApp-custom" / "identification" / "ai_discriminator_cli.py"
+AI_DISC_BIN = f"python {AI_DISC_CLI}"
 
 
 # ── Androzoo helpers ──────────────────────────────────────────────────────────
@@ -234,10 +235,13 @@ def main():
             results.append(row)
             continue
 
-        # 4. Run LLMAID
-        print(f"  LLMAID...", end=" ", flush=True)
-        row["llmaid_label"] = run_llmaid(dec_dir, pkg)
-        print(row["llmaid_label"])
+        # 4. Run LLMAID (optional — skip if binary not configured)
+        if LLMAID_BIN and LLMAID_BIN != "llmaid":
+            print(f"  LLMAID...", end=" ", flush=True)
+            row["llmaid_label"] = run_llmaid(dec_dir, pkg)
+            print(row["llmaid_label"])
+        else:
+            print("  LLMAID... [skipped — LLMAID_BIN not set]")
 
         # 5. Run AI Discriminator
         print(f"  AI Discriminator...", end=" ", flush=True)
@@ -248,8 +252,8 @@ def main():
         save_checkpoint(done)
         results.append(row)
 
-    # Write output CSV (only apps where at least llmaid ran)
-    valid = [r for r in results if r.get("llmaid_label", -1) != -1]
+    # Write output CSV (apps where at least AI Discriminator ran)
+    valid = [r for r in results if r.get("ai_discriminator_label", -1) != -1]
     with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["pkg_name", "listing_label", "llmaid_label", "ai_discriminator_label"])
         writer.writeheader()
