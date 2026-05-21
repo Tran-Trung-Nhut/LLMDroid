@@ -1,0 +1,50 @@
+{
+  "20": {
+    "k": 20,
+    "actual_k": 20,
+    "roc_auc_mean": 0.8286,
+    "roc_auc_std": 0.0134,
+    "f1_pos_mean": 0.7219,
+    "f1_pos_std": 0.069
+  },
+  "50": {
+    "k": 50,
+    "actual_k": 50,
+    "roc_auc_mean": 0.8496,
+    "roc_auc_std": 0.0169,
+    "f1_pos_mean": 0.748,
+    "f1_pos_std": 0.0418
+  },
+  "100": {
+    "k": 100,
+    "actual_k": 100,
+    "roc_auc_mean": 0.8455,
+    "roc_auc_std": 0.0128,
+    "f1_pos_mean": 0.7185,
+    "f1_pos_std": 0.0815
+  },
+  "200": {
+    "k": 200,
+    "actual_k": 200,
+    "roc_auc_mean": 0.8594,
+    "roc_auc_std": 0.0159,
+    "f1_pos_mean": 0.742,
+    "f1_pos_std": 0.0304
+  },
+  "500": {
+    "k": 500,
+    "actual_k": 500,
+    "roc_auc_mean": 0.8549,
+    "roc_auc_std": 0.0408,
+    "f1_pos_mean": 0.7166,
+    "f1_pos_std": 0.0678
+  },
+  "all_1058": {
+    "k": 1058,
+    "actual_k": 1058,
+    "roc_auc_mean": 0.859,
+    "roc_auc_std": 0.0251,
+    "f1_pos_mean": 0.7216,
+    "f1_pos_std": 0.0538
+  }
+}
